@@ -1,0 +1,26 @@
+{
+  "name": "audio",
+  "version": "0.1.0",
+  "description": "Audio Toolbox for NumKit",
+  "author": "NumKit",
+  "license": "0BSD",
+  "library": "numkit_audio",
+  "exports": [
+    "hz2mel", "mel2hz", "hz2bark", "bark2hz", "hz2erb", "erb2hz", "phon2sone", "sone2phon",
+    "spectralCentroid", "spectralSpread", "spectralRolloffPoint", "spectralDecrease", "spectralSlope", "spectralFlux",
+    "spectralCrest", "spectralEntropy", "spectralFlatness", "spectralKurtosis", "spectralSkewness",
+    "melSpectrogram", "audioDelta",
+    "cepstralCoefficients", "mfcc", "gtcc",
+    "pitch", "harmonicRatio",
+    "audioread", "audiowrite", "audioinfo", "midiread", "midiwrite", "midiinfo"
+  ],
+  "functions": [
+    "hz2mel", "mel2hz", "hz2bark", "bark2hz", "hz2erb", "erb2hz", "phon2sone", "sone2phon",
+    "spectralCentroid", "spectralSpread", "spectralRolloffPoint", "spectralDecrease", "spectralSlope", "spectralFlux",
+    "spectralCrest", "spectralEntropy", "spectralFlatness", "spectralKurtosis", "spectralSkewness",
+    "melSpectrogram", "audioDelta",
+    "cepstralCoefficients", "mfcc", "gtcc",
+    "pitch", "harmonicRatio",
+    "audioread", "audiowrite", "audioinfo", "midiread", "midiwrite", "midiinfo"
+  ]
+}
