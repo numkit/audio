@@ -48,7 +48,7 @@ std::vector<uint8_t> readFileDirect(const std::string &path) {
     std::ifstream is(path, std::ios::binary);
     if (!is) {
         throw Error("audioread: could not open file: " + path,
-                    0, 0, "audioread", "", "nk:audioread:fileNotFound");
+                    0, 0, "audioread", "", "numkit:audioread:fileNotFound");
     }
     return std::vector<uint8_t>(std::istreambuf_iterator<char>(is), {});
 }
@@ -57,7 +57,7 @@ void writeFileDirect(const std::string &path, const std::vector<uint8_t> &data) 
     std::ofstream os(path, std::ios::binary);
     if (!os) {
         throw Error("audiowrite: could not create output file: " + path,
-                    0, 0, "audiowrite", "", "nk:audiowrite:fileCreateFailed");
+                    0, 0, "audiowrite", "", "numkit:audiowrite:fileCreateFailed");
     }
     os.write(reinterpret_cast<const char *>(data.data()), static_cast<std::streamsize>(data.size()));
 }
@@ -84,7 +84,7 @@ AudioData audioreadFromBytes(const std::uint8_t *data, std::size_t len,
     }
 
     throw Error("audioread: unrecognized or unsupported audio file format",
-                0, 0, "audioread", "", "nk:audioread:unsupportedFormat");
+                0, 0, "audioread", "", "numkit:audioread:unsupportedFormat");
 }
 
 AudioData audioreadFromBytes(const std::string &bytes,
@@ -113,7 +113,7 @@ AudioInfo audioinfoFromBytes(const std::uint8_t *data, std::size_t len)
     }
 
     throw Error("audioinfo: unrecognized or unsupported audio file format",
-                0, 0, "audioinfo", "", "nk:audioinfo:unsupportedFormat");
+                0, 0, "audioinfo", "", "numkit:audioinfo:unsupportedFormat");
 }
 
 AudioInfo audioinfoFromBytes(const std::string &bytes)
@@ -140,7 +140,7 @@ std::vector<std::uint8_t> audiowriteToBytes(const Value &y, double sampleRate,
     }
 
     throw Error("audiowrite: unsupported format for audio encoding: '" + format + "'",
-                0, 0, "audiowrite", "", "nk:audiowrite:unsupportedFormat");
+                0, 0, "audiowrite", "", "numkit:audiowrite:unsupportedFormat");
 }
 
 AudioData audioread(const std::string &path,

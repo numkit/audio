@@ -110,7 +110,7 @@ AudioInfo peekAu(const std::uint8_t *data, std::size_t len)
 {
     if (!isAuBytes(data, len) || len < 24)
         throw Error("audioinfo: not a valid AU/SND audio stream",
-                    0, 0, "audioinfo", "", "nk:audioinfo:badAuMagic");
+                    0, 0, "audioinfo", "", "numkit:audioinfo:badAuMagic");
 
     uint32_t dataOffset = readU32BE(data + 4);
     uint32_t dataSize   = readU32BE(data + 8);
@@ -165,7 +165,7 @@ AudioData readAu(const std::uint8_t *data, std::size_t len,
 {
     if (!isAuBytes(data, len) || len < 24)
         throw Error("audioread: not a valid AU/SND audio stream",
-                    0, 0, "audioread", "", "nk:audioread:badAuMagic");
+                    0, 0, "audioread", "", "numkit:audioread:badAuMagic");
 
     uint32_t dataOffset = readU32BE(data + 4);
     uint32_t dataSize   = readU32BE(data + 8);
@@ -175,7 +175,7 @@ AudioData readAu(const std::uint8_t *data, std::size_t len,
 
     if (numChannels == 0)
         throw Error("audioread: audio has zero channels",
-                    0, 0, "audioread", "", "nk:audioread:channels");
+                    0, 0, "audioread", "", "numkit:audioread:channels");
 
     size_t bytesPerSample = 2;
     uint16_t bitsPerSample = 16;
@@ -287,7 +287,7 @@ std::vector<std::uint8_t> writeAuToBytes(const Value &y, double sampleRate,
 
     if (numFrames == 0 || numChannels == 0)
         throw Error("audiowrite: audio matrix cannot be empty",
-                    0, 0, "audiowrite", "", "nk:audiowrite:empty");
+                    0, 0, "audiowrite", "", "numkit:audiowrite:empty");
 
     if (sampleRate <= 0) sampleRate = 44100.0;
     if (bitsPerSample != 8 && bitsPerSample != 16 && bitsPerSample != 24 && bitsPerSample != 32) {

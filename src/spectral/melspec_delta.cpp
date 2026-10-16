@@ -197,16 +197,16 @@ Value audioDeltaFull(const Value &x, int windowLength,
     if (windowLength < 3 || (windowLength % 2) == 0)
         throw Error("audioDelta: windowLength must be an odd integer "
                     "greater than 1 (got " + std::to_string(windowLength) + ").",
-                    0, 0, "audioDelta", "", "nk:audioDelta:BadWin");
+                    0, 0, "audioDelta", "", "numkit:audioDelta:BadWin");
 
     if (x.type() == ValueType::COMPLEX)
         throw Error("audioDelta: input 1 (x) must be real.",
-                    0, 0, "audioDelta", "", "nk:audioDelta:expectedReal");
+                    0, 0, "audioDelta", "", "numkit:audioDelta:expectedReal");
     if (x.type() != ValueType::DOUBLE && x.type() != ValueType::SINGLE
         && x.type() != ValueType::EMPTY)
         throw Error("audioDelta: input 1 (x) must be double or single "
                     "(got a " + std::string(mtypeName(x.type())) + " array).",
-                    0, 0, "audioDelta", "", "nk:audioDelta:invalidType");
+                    0, 0, "audioDelta", "", "numkit:audioDelta:invalidType");
 
     const int M = windowLength / 2;
     // Coefficients [M, M-1, ..., 1, 0, -1, ..., -M] / sum((1:M)^2)
@@ -249,11 +249,11 @@ Value audioDeltaFull(const Value &x, int windowLength,
                         + std::to_string(L - 1) + " rows and "
                         + std::to_string(C) + " channels.",
                         0, 0, "audioDelta", "",
-                        "nk:audioDelta:BadInitialConditions");
+                        "numkit:audioDelta:BadInitialConditions");
         if (initialCondition->type() == ValueType::COMPLEX)
             throw Error("audioDelta: initialCondition must be real.",
                         0, 0, "audioDelta", "",
-                        "nk:audioDelta:BadInitialConditions");
+                        "numkit:audioDelta:BadInitialConditions");
     }
 
     ScratchArena scratch(mr);

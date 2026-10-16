@@ -23,7 +23,7 @@ void melSpectrogram_reg(Span<const Value> args, size_t nargout,
 {
     if (args.size() < 2)
         throw Error("melSpectrogram: requires (x, fs [, NumBands])",
-                    0, 0, "melSpectrogram", "", "nk:melSpectrogram:nargin");
+                    0, 0, "melSpectrogram", "", "numkit:melSpectrogram:nargin");
     int numBands = 32;
     if (args.size() >= 3) numBands = argcheck::expectedPositiveInteger(
         argcheck::expectedReal(args[2], 3, "numBands", "melSpectrogram"), 3, "numBands", "melSpectrogram");

@@ -255,19 +255,19 @@ Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
     if (S.type() == ValueType::COMPLEX)
         throw Error("cepstralCoefficients: input 1 (S) must be real.",
                     0, 0, "cepstralCoefficients", "",
-                    "nk:cepstralCoefficients:expectedReal");
+                    "numkit:cepstralCoefficients:expectedReal");
     if (S.type() != ValueType::DOUBLE && S.type() != ValueType::SINGLE
         && S.type() != ValueType::EMPTY)
         throw Error("cepstralCoefficients: input 1 (S) must be double or "
                     "single (got a " + std::string(mtypeName(S.type()))
                     + " array).",
                     0, 0, "cepstralCoefficients", "",
-                    "nk:cepstralCoefficients:invalidType");
+                    "numkit:cepstralCoefficients:invalidType");
     if (numCoeffs <= 1)
         throw Error("cepstralCoefficients: NumCoeffs must be an integer "
                     "greater than 1 (got " + std::to_string(numCoeffs) + ").",
                     0, 0, "cepstralCoefficients", "",
-                    "nk:cepstralCoefficients:BadN");
+                    "numkit:cepstralCoefficients:BadN");
 
     const bool wantSingle = S.type() == ValueType::SINGLE;
     const Dims &d = S.dims();
@@ -283,7 +283,7 @@ Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
                                             ? "cubic-root" : "log") +
                             "' rectification (got a negative value).",
                             0, 0, "cepstralCoefficients", "",
-                            "nk:cepstralCoefficients:expectedNonnegative");
+                            "numkit:cepstralCoefficients:expectedNonnegative");
     }
 
     // Output dims: (d2, K, d3, ...).

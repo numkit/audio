@@ -112,12 +112,12 @@ MidiInfo peekMidi(const std::uint8_t *data, std::size_t len)
 {
     if (!isMidiBytes(data, len) || len < 14)
         throw Error("midiinfo: not a valid MIDI file (missing MThd header)",
-                    0, 0, "midiinfo", "", "nk:midiinfo:badMagic");
+                    0, 0, "midiinfo", "", "numkit:midiinfo:badMagic");
 
     uint32_t headerLen = readU32BE(data + 4);
     if (headerLen < 6)
         throw Error("midiinfo: malformed MThd chunk",
-                    0, 0, "midiinfo", "", "nk:midiinfo:badHeader");
+                    0, 0, "midiinfo", "", "numkit:midiinfo:badHeader");
 
     uint16_t format = readU16BE(data + 8);
     uint16_t numTracks = readU16BE(data + 10);
@@ -208,7 +208,7 @@ Value readMidi(const std::uint8_t *data, std::size_t len,
 {
     if (!isMidiBytes(data, len) || len < 14)
         throw Error("midiread: not a valid MIDI file (missing MThd header)",
-                    0, 0, "midiread", "", "nk:midiread:badMagic");
+                    0, 0, "midiread", "", "numkit:midiread:badMagic");
 
     uint32_t headerLen = readU32BE(data + 4);
     uint16_t format = readU16BE(data + 8);

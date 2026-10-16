@@ -27,7 +27,7 @@ namespace detail {
     {                                                                            \
         if (args.size() < 2)                                                     \
             throw Error(#FN ": requires (x, fs) or (X, F)",                      \
-                        0, 0, #FN, "", "nk:" #FN ":nargin");                      \
+                        0, 0, #FN, "", "numkit:" #FN ":nargin");                      \
         outs[0] = FN(args[0], args[1], ctx.engine->resource());                  \
     }
 
@@ -49,7 +49,7 @@ void spectralRolloffPoint_reg(Span<const Value> args, size_t /*nargout*/,
     if (args.size() < 2)
         throw Error("spectralRolloffPoint: requires (x, fs [, threshold])",
                     0, 0, "spectralRolloffPoint", "",
-                    "nk:spectralRolloffPoint:nargin");
+                    "numkit:spectralRolloffPoint:nargin");
     double pct = 0.95;
     if (args.size() >= 3) pct = args[2].toScalar();
     outs[0] = spectralRolloffPoint(args[0], args[1], pct,
@@ -66,7 +66,7 @@ void spectralFlux_reg(Span<const Value> args, size_t nargout,
     // FFTLength / Range (validated inside the shared computeStft port).
     if (args.size() < 2)
         throw Error("spectralFlux: requires (x, f[, ic][, Name=Value])",
-                    0, 0, "spectralFlux", "", "nk:spectralFlux:nargin");
+                    0, 0, "spectralFlux", "", "numkit:spectralFlux:nargin");
     auto *mr = ctx.engine->resource();
     const Value &x = args[0];
     const Value &f = args[1];
@@ -85,25 +85,25 @@ void spectralFlux_reg(Span<const Value> args, size_t nargout,
                 if (i + 1 >= args.size())
                     throw Error("spectralFlux: NormType needs a value.",
                                 0, 0, "spectralFlux", "",
-                                "nk:spectralFlux:nargin");
+                                "numkit:spectralFlux:nargin");
                 const Value &v = args[i + 1];
                 if (v.type() == ValueType::COMPLEX)
                     throw Error("spectralFlux: NormType must be real.",
                                 0, 0, "spectralFlux", "",
-                                "nk:spectralFlux:mustBeReal");
+                                "numkit:spectralFlux:mustBeReal");
                 const double pv = v.elemAsDouble(0);
                 if (pv != 1.0 && pv != 2.0)
                     throw Error("spectralFlux: NormType must be 1 or 2 "
                                 "(got " + std::to_string(pv) + ").",
                                 0, 0, "spectralFlux", "",
-                                "nk:spectralFlux:normType");
+                                "numkit:spectralFlux:normType");
                 p = pv;
                 i += 2;
             } else if (name == "spectrumtype" || name == "spect") {
                 if (i + 1 >= args.size())
                     throw Error("spectralFlux: SpectrumType needs a value.",
                                 0, 0, "spectralFlux", "",
-                                "nk:spectralFlux:nargin");
+                                "numkit:spectralFlux:nargin");
                 std::string val = args[i + 1].toString();
                 for (auto &c : val)
                     c = static_cast<char>(std::tolower(
@@ -116,49 +116,49 @@ void spectralFlux_reg(Span<const Value> args, size_t nargout,
                     throw Error("spectralFlux: SpectrumType must be "
                                 "'power' or 'magnitude' (got '" + val + "').",
                                 0, 0, "spectralFlux", "",
-                                "nk:spectralFlux:spectrumType");
+                                "numkit:spectralFlux:spectrumType");
                 magnitude = isMag;
                 i += 2;
             } else if (name == "window") {
                 if (i + 1 >= args.size())
                     throw Error("spectralFlux: Window needs a value.",
                                 0, 0, "spectralFlux", "",
-                                "nk:spectralFlux:nargin");
+                                "numkit:spectralFlux:nargin");
                 stft.Window = args[i + 1];
                 i += 2;
             } else if (name == "overlaplength") {
                 if (i + 1 >= args.size())
                     throw Error("spectralFlux: OverlapLength needs a value.",
                                 0, 0, "spectralFlux", "",
-                                "nk:spectralFlux:nargin");
+                                "numkit:spectralFlux:nargin");
                 stft.OverlapLength = args[i + 1];
                 i += 2;
             } else if (name == "fftlength") {
                 if (i + 1 >= args.size())
                     throw Error("spectralFlux: FFTLength needs a value.",
                                 0, 0, "spectralFlux", "",
-                                "nk:spectralFlux:nargin");
+                                "numkit:spectralFlux:nargin");
                 stft.FFTLength = args[i + 1];
                 i += 2;
             } else if (name == "range") {
                 if (i + 1 >= args.size())
                     throw Error("spectralFlux: Range needs a value.",
                                 0, 0, "spectralFlux", "",
-                                "nk:spectralFlux:nargin");
+                                "numkit:spectralFlux:nargin");
                 stft.Range = args[i + 1];
                 i += 2;
             } else {
                 throw Error("spectralFlux: unrecognized name-value "
                             "argument '" + name + "'.",
                             0, 0, "spectralFlux", "",
-                            "nk:spectralFlux:TooManyInputs");
+                            "numkit:spectralFlux:TooManyInputs");
             }
         } else {
             if (ic)
                 throw Error("spectralFlux: unexpected argument at "
                             "position " + std::to_string(i + 1) + ".",
                             0, 0, "spectralFlux", "",
-                            "nk:spectralFlux:nargin");
+                            "numkit:spectralFlux:nargin");
             ic = &args[i];
             ++i;
         }

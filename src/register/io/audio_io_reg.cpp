@@ -36,11 +36,11 @@ void audioread_reg(Span<const Value> args, size_t nargout, Span<Value> outs,
 {
     if (args.empty()) {
         throw Error("audioread: requires a filename",
-                    0, 0, "audioread", "", "nk:audioread:nargin");
+                    0, 0, "audioread", "", "numkit:audioread:nargin");
     }
     if (!args[0].isChar() && !args[0].isString()) {
         throw Error("audioread: filename must be a string",
-                    0, 0, "audioread", "", "nk:audioread:type");
+                    0, 0, "audioread", "", "numkit:audioread:type");
     }
 
     const std::string path = args[0].toString();
@@ -66,7 +66,7 @@ void audioread_reg(Span<const Value> args, size_t nargout, Span<Value> outs,
     auto rp = ctx.engine->resolvePath(path);
     if (!rp.fs || !rp.fs->exists(rp.path)) {
         throw Error("audioread: failed to read '" + path + "' — file not found",
-                    0, 0, "audioread", "", "nk:audioread:fileNotFound");
+                    0, 0, "audioread", "", "numkit:audioread:fileNotFound");
     }
 
     const std::string bytes = rp.fs->readFileBytes(rp.path);
@@ -85,15 +85,15 @@ void audiowrite_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> /*ou
 {
     if (args.size() < 3) {
         throw Error("audiowrite: requires filename, audio data, and sample rate",
-                    0, 0, "audiowrite", "", "nk:audiowrite:nargin");
+                    0, 0, "audiowrite", "", "numkit:audiowrite:nargin");
     }
     if (!args[0].isChar() && !args[0].isString()) {
         throw Error("audiowrite: filename must be a string",
-                    0, 0, "audiowrite", "", "nk:audiowrite:type");
+                    0, 0, "audiowrite", "", "numkit:audiowrite:type");
     }
     if (!args[1].isNumeric()) {
         throw Error("audiowrite: audio data must be a numeric matrix",
-                    0, 0, "audiowrite", "", "nk:audiowrite:data");
+                    0, 0, "audiowrite", "", "numkit:audiowrite:data");
     }
 
     const std::string path = args[0].toString();
@@ -132,7 +132,7 @@ void audiowrite_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> /*ou
     auto rp = ctx.engine->resolvePath(path);
     if (!rp.fs) {
         throw Error("audiowrite: no filesystem for '" + path + "'",
-                    0, 0, "audiowrite", "", "nk:audiowrite:fs");
+                    0, 0, "audiowrite", "", "numkit:audiowrite:fs");
     }
 
     rp.fs->writeFileBytes(rp.path, std::string(outBytes.begin(), outBytes.end()));
@@ -143,18 +143,18 @@ void audioinfo_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> outs,
 {
     if (args.empty()) {
         throw Error("audioinfo: requires a filename",
-                    0, 0, "audioinfo", "", "nk:audioinfo:nargin");
+                    0, 0, "audioinfo", "", "numkit:audioinfo:nargin");
     }
     if (!args[0].isChar() && !args[0].isString()) {
         throw Error("audioinfo: filename must be a string",
-                    0, 0, "audioinfo", "", "nk:audioinfo:type");
+                    0, 0, "audioinfo", "", "numkit:audioinfo:type");
     }
 
     const std::string path = args[0].toString();
     auto rp = ctx.engine->resolvePath(path);
     if (!rp.fs || !rp.fs->exists(rp.path)) {
         throw Error("audioinfo: failed to read '" + path + "' — file not found",
-                    0, 0, "audioinfo", "", "nk:audioinfo:fileNotFound");
+                    0, 0, "audioinfo", "", "numkit:audioinfo:fileNotFound");
     }
 
     const std::string bytes = rp.fs->readFileBytes(rp.path);
@@ -182,13 +182,13 @@ void midiread_reg(Span<const Value> args, size_t nargout, Span<Value> outs,
 {
     if (args.empty()) {
         throw Error("midiread: requires a filename",
-                    0, 0, "midiread", "", "nk:midiread:nargin");
+                    0, 0, "midiread", "", "numkit:midiread:nargin");
     }
     const std::string path = args[0].toString();
     auto rp = ctx.engine->resolvePath(path);
     if (!rp.fs || !rp.fs->exists(rp.path)) {
         throw Error("midiread: file not found: " + path,
-                    0, 0, "midiread", "", "nk:midiread:fileNotFound");
+                    0, 0, "midiread", "", "numkit:midiread:fileNotFound");
     }
 
     const std::string bytes = rp.fs->readFileBytes(rp.path);
@@ -214,7 +214,7 @@ void midiwrite_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> /*out
 {
     if (args.size() < 2) {
         throw Error("midiwrite: requires filename and notes matrix",
-                    0, 0, "midiwrite", "", "nk:midiwrite:nargin");
+                    0, 0, "midiwrite", "", "numkit:midiwrite:nargin");
     }
     const std::string path = args[0].toString();
     const Value &notes = args[1];
@@ -228,7 +228,7 @@ void midiwrite_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> /*out
     auto rp = ctx.engine->resolvePath(path);
     if (!rp.fs) {
         throw Error("midiwrite: no filesystem for '" + path + "'",
-                    0, 0, "midiwrite", "", "nk:midiwrite:fs");
+                    0, 0, "midiwrite", "", "numkit:midiwrite:fs");
     }
     rp.fs->writeFileBytes(rp.path, std::string(bytes.begin(), bytes.end()));
 }
@@ -238,13 +238,13 @@ void midiinfo_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> outs,
 {
     if (args.empty()) {
         throw Error("midiinfo: requires a filename",
-                    0, 0, "midiinfo", "", "nk:midiinfo:nargin");
+                    0, 0, "midiinfo", "", "numkit:midiinfo:nargin");
     }
     const std::string path = args[0].toString();
     auto rp = ctx.engine->resolvePath(path);
     if (!rp.fs || !rp.fs->exists(rp.path)) {
         throw Error("midiinfo: file not found: " + path,
-                    0, 0, "midiinfo", "", "nk:midiinfo:fileNotFound");
+                    0, 0, "midiinfo", "", "numkit:midiinfo:fileNotFound");
     }
 
     const std::string bytes = rp.fs->readFileBytes(rp.path);

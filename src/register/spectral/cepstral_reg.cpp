@@ -26,7 +26,7 @@ void cepstralCoefficients_reg(Span<const Value> args, size_t /*nargout*/,
     if (args.empty())
         throw Error("cepstralCoefficients: requires (S[, Name=Value])",
                     0, 0, "cepstralCoefficients", "",
-                    "nk:cepstralCoefficients:nargin");
+                    "numkit:cepstralCoefficients:nargin");
     int nc = 13;
     CepstralRect rect = CepstralRect::Log;
     const Value &S = args[0];
@@ -35,7 +35,7 @@ void cepstralCoefficients_reg(Span<const Value> args, size_t /*nargout*/,
             throw Error("cepstralCoefficients: expected a name-value pair "
                         "at argument " + std::to_string(i + 1) + ".",
                         0, 0, "cepstralCoefficients", "",
-                        "nk:cepstralCoefficients:nargin");
+                        "numkit:cepstralCoefficients:nargin");
         std::string name = args[i].toString();
         for (auto &c : name)
             c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -49,7 +49,7 @@ void cepstralCoefficients_reg(Span<const Value> args, size_t /*nargout*/,
                             "integer greater than 1 (got "
                             + std::to_string(nc) + ").",
                             0, 0, "cepstralCoefficients", "",
-                            "nk:cepstralCoefficients:BadN");
+                            "numkit:cepstralCoefficients:BadN");
         } else if (name == "rectification" || name == "rect") {
             std::string val = args[i + 1].toString();
             for (auto &c : val)
@@ -62,13 +62,13 @@ void cepstralCoefficients_reg(Span<const Value> args, size_t /*nargout*/,
                 throw Error("cepstralCoefficients: Rectification must be "
                             "'log', 'cubic-root' or 'none' (got '" + val + "').",
                             0, 0, "cepstralCoefficients", "",
-                            "nk:cepstralCoefficients:rectification");
+                            "numkit:cepstralCoefficients:rectification");
         } else {
             throw Error("cepstralCoefficients: unrecognized name-value "
                         "argument '" + name + "' (expected NumCoeffs or "
                         "Rectification).",
                         0, 0, "cepstralCoefficients", "",
-                        "nk:cepstralCoefficients:TooManyInputs");
+                        "numkit:cepstralCoefficients:TooManyInputs");
         }
     }
     outs[0] = cepstralCoefficients(S, nc, rect, ctx.engine->resource());
@@ -79,7 +79,7 @@ void mfcc_reg(Span<const Value> args, size_t nargout,
 {
     if (args.size() < 2)
         throw Error("mfcc: requires (x, fs [, NumCoeffs])",
-                    0, 0, "mfcc", "", "nk:mfcc:nargin");
+                    0, 0, "mfcc", "", "numkit:mfcc:nargin");
     int nc = 13;
     if (args.size() >= 3) nc = argcheck::expectedPositiveInteger(
         argcheck::expectedReal(args[2], 3, "numCoeffs", "mfcc"), 3, "numCoeffs", "mfcc");
@@ -95,7 +95,7 @@ void gtcc_reg(Span<const Value> args, size_t nargout,
 {
     if (args.size() < 2)
         throw Error("gtcc: requires (x, fs [, NumCoeffs])",
-                    0, 0, "gtcc", "", "nk:gtcc:nargin");
+                    0, 0, "gtcc", "", "numkit:gtcc:nargin");
     int nc = 13;
     if (args.size() >= 3) nc = argcheck::expectedPositiveInteger(
         argcheck::expectedReal(args[2], 3, "numCoeffs", "gtcc"), 3, "numCoeffs", "gtcc");

@@ -63,7 +63,7 @@ static void requireFloatClass(const Value &v, const char *fn,
     throw Error(std::string(fn) + ": input " + std::to_string(argNum)
                     + " (" + argName + ") must be single or double, not "
                     + mtypeName(v.type()) + ".",
-                0, 0, fn, "", std::string("nk:") + fn + ":invalidType");
+                0, 0, fn, "", std::string("numkit:") + fn + ":invalidType");
 }
 
 // Build the STFT (short-time Fourier transform) power/magnitude matrix
@@ -115,7 +115,7 @@ static Stft computeStft(std::pmr::memory_resource *mr, const Value &x,
                                 + " exceeds the signal length "
                                 + std::to_string(xLen) + ".",
                             0, 0, fn, "",
-                            std::string("nk:") + fn + ":BadWindowLength");
+                            std::string("numkit:") + fn + ":BadWindowLength");
             winLen = static_cast<size_t>(wNatural);
             win.assign(winLen, 1.0);
         } else if (!haveOvl) {
@@ -135,28 +135,28 @@ static Stft computeStft(std::pmr::memory_resource *mr, const Value &x,
         if (W.type() == ValueType::COMPLEX)
             throw Error(std::string(fn) + ": input Window must be real.",
                         0, 0, fn, "",
-                        std::string("nk:") + fn + ":expectedReal");
+                        std::string("numkit:") + fn + ":expectedReal");
         if (W.numel() == 0)
             throw Error(std::string(fn) + ": input Window must be "
                         "nonempty.", 0, 0, fn, "",
-                        std::string("nk:") + fn + ":expectedNonempty");
+                        std::string("numkit:") + fn + ":expectedNonempty");
         if (W.dims().cols() != 1 && W.numel() > 1)
             throw Error(std::string(fn) + ": input Window must be a "
                         "column vector.", 0, 0, fn, "",
-                        std::string("nk:") + fn + ":expectedColumn");
+                        std::string("numkit:") + fn + ":expectedColumn");
         const size_t wn = W.numel();
         for (size_t i = 0; i < wn; ++i)
             if (!std::isfinite(W.elemAsDouble(i)))
                 throw Error(std::string(fn) + ": input Window must be "
                             "finite.", 0, 0, fn, "",
-                            std::string("nk:") + fn + ":expectedFinite");
+                            std::string("numkit:") + fn + ":expectedFinite");
         if (wn <= 2 || wn > xLen)
             throw Error(std::string(fn) + ": numel(Window) must be "
                             "greater than 2 and at most the signal "
                             "length " + std::to_string(xLen) + " (got "
                             + std::to_string(wn) + ").",
                         0, 0, fn, "",
-                        std::string("nk:") + fn + ":notLessEqual");
+                        std::string("numkit:") + fn + ":notLessEqual");
         winLen = wn;
         win.resize(wn);
         for (size_t i = 0; i < wn; ++i) win[i] = W.elemAsDouble(i);
@@ -174,26 +174,26 @@ static Stft computeStft(std::pmr::memory_resource *mr, const Value &x,
         if (O.type() == ValueType::COMPLEX)
             throw Error(std::string(fn) + ": input OverlapLength must be "
                         "real.", 0, 0, fn, "",
-                        std::string("nk:") + fn + ":expectedReal");
+                        std::string("numkit:") + fn + ":expectedReal");
         if (O.numel() != 1)
             throw Error(std::string(fn) + ": input OverlapLength must be "
                         "a scalar.", 0, 0, fn, "",
-                        std::string("nk:") + fn + ":expectedScalar");
+                        std::string("numkit:") + fn + ":expectedScalar");
         const double v = O.elemAsDouble(0);
         if (!(v == std::floor(v)))
             throw Error(std::string(fn) + ": input OverlapLength must be "
                         "an integer.", 0, 0, fn, "",
-                        std::string("nk:") + fn + ":expectedInteger");
+                        std::string("numkit:") + fn + ":expectedInteger");
         if (v < 0.0)
             throw Error(std::string(fn) + ": input OverlapLength must be "
                         "nonnegative.", 0, 0, fn, "",
-                        std::string("nk:") + fn + ":expectedNonnegative");
+                        std::string("numkit:") + fn + ":expectedNonnegative");
         if (v >= static_cast<double>(winLen))
             throw Error(std::string(fn) + ": OverlapLength must be "
                             "smaller than the window length "
                             + std::to_string(winLen) + ".",
                         0, 0, fn, "",
-                        std::string("nk:") + fn + ":BadOverlapLength");
+                        std::string("numkit:") + fn + ":BadOverlapLength");
         overlap = static_cast<size_t>(v);
     }
 
@@ -204,20 +204,20 @@ static Stft computeStft(std::pmr::memory_resource *mr, const Value &x,
         if (Nv.type() == ValueType::COMPLEX)
             throw Error(std::string(fn) + ": input FFTLength must be "
                         "real.", 0, 0, fn, "",
-                        std::string("nk:") + fn + ":expectedReal");
+                        std::string("numkit:") + fn + ":expectedReal");
         if (Nv.numel() != 1)
             throw Error(std::string(fn) + ": input FFTLength must be a "
                         "scalar.", 0, 0, fn, "",
-                        std::string("nk:") + fn + ":expectedScalar");
+                        std::string("numkit:") + fn + ":expectedScalar");
         const double v = Nv.elemAsDouble(0);
         if (!(v == std::floor(v)) || v <= 0.0)
             throw Error(std::string(fn) + ": input FFTLength must be a "
                         "positive integer.", 0, 0, fn, "",
-                        std::string("nk:") + fn + ":mustBePositive");
+                        std::string("numkit:") + fn + ":mustBePositive");
         if (v < 2.0)
             throw Error(std::string(fn) + ": FFTLength must be at least "
                         "2.", 0, 0, fn, "",
-                        std::string("nk:") + fn
+                        std::string("numkit:") + fn
                             + ":mustBeGreaterThanOrEqual");
         nfft = static_cast<size_t>(v);
     }
@@ -226,7 +226,7 @@ static Stft computeStft(std::pmr::memory_resource *mr, const Value &x,
                         "than or equal to the window length, "
                         + std::to_string(winLen) + ".",
                     0, 0, fn, "",
-                    std::string("nk:") + fn
+                    std::string("numkit:") + fn
                         + ":FFTLengthLessThanWindowLength");
 
     // ── range ──
@@ -238,30 +238,30 @@ static Stft computeStft(std::pmr::memory_resource *mr, const Value &x,
         if (R.type() == ValueType::COMPLEX)
             throw Error(std::string(fn) + ": input Range must be real.",
                         0, 0, fn, "",
-                        std::string("nk:") + fn + ":expectedReal");
+                        std::string("numkit:") + fn + ":expectedReal");
         if (R.numel() != 2 || R.dims().rows() != 1)
             throw Error(std::string(fn) + ": input Range must be a 1-by-2 "
                         "row vector.", 0, 0, fn, "",
-                        std::string("nk:") + fn + ":expectedRow");
+                        std::string("numkit:") + fn + ":expectedRow");
         rLo = R.elemAsDouble(0);
         rHi = R.elemAsDouble(1);
         if (!std::isfinite(rLo) || !std::isfinite(rHi))
             throw Error(std::string(fn) + ": input Range must be finite.",
                         0, 0, fn, "",
-                        std::string("nk:") + fn + ":expectedFinite");
+                        std::string("numkit:") + fn + ":expectedFinite");
         if (!(rLo < rHi))
             throw Error(std::string(fn) + ": Expected Range to be "
                         "strictly increasing.", 0, 0, fn, "",
-                        std::string("nk:") + fn + ":expectedIncreasing");
+                        std::string("numkit:") + fn + ":expectedIncreasing");
         if (rLo < 0.0)
             throw Error(std::string(fn) + ": input Range must be "
                         "nonnegative.", 0, 0, fn, "",
-                        std::string("nk:") + fn + ":expectedNonnegative");
+                        std::string("numkit:") + fn + ":expectedNonnegative");
         if (rHi > fs / 2.0)
             throw Error(std::string(fn) + ": Range(2) must be at most "
                         "fs/2 = " + std::to_string(fs / 2.0) + ".",
                         0, 0, fn, "",
-                        std::string("nk:") + fn + ":notLessEqual");
+                        std::string("numkit:") + fn + ":notLessEqual");
     }
 
     const size_t hop = winLen - overlap;
@@ -348,26 +348,26 @@ InputData prepareInput(std::pmr::memory_resource *mr,
         if (x.type() == ValueType::COMPLEX)
             throw Error(std::string(fn) + ": input 1 (x) must be real.",
                         0, 0, fn, "",
-                        std::string("nk:") + fn + ":expectedReal");
+                        std::string("numkit:") + fn + ":expectedReal");
         if (x.isEmpty())
             throw Error(std::string(fn) + ": input 1 (x) must be "
                         "nonempty.", 0, 0, fn, "",
-                        std::string("nk:") + fn + ":expectedNonempty");
+                        std::string("numkit:") + fn + ":expectedNonempty");
         if (x.dims().pages() > 1)
             throw Error(std::string(fn) + ": Expected x to be "
                         "two-dimensional.", 0, 0, fn, "",
-                        std::string("nk:") + fn + ":expected2D");
+                        std::string("numkit:") + fn + ":expected2D");
         if (x.dims().rows() < 2)
             throw Error(std::string(fn) + ": Expected the length of the "
                         "signals in \"x\" to be larger than 1.",
                         0, 0, fn, "",
-                        std::string("nk:") + fn
+                        std::string("numkit:") + fn
                             + ":insufficientSignalLength");
         for (size_t i = 0; i < x.numel(); ++i)
             if (!std::isfinite(x.elemAsDouble(i)))
                 throw Error(std::string(fn) + ": input 1 (x) must be "
                             "finite.", 0, 0, fn, "",
-                            std::string("nk:") + fn + ":expectedFinite");
+                            std::string("numkit:") + fn + ":expectedFinite");
         const double fs = f.elemAsDouble(0);
         Stft s = computeStft(mr, x, fs, magnitude, fn, opts);
         d.X = std::move(s.X);
@@ -381,13 +381,13 @@ InputData prepareInput(std::pmr::memory_resource *mr,
         if (x.dims().rows() < 2)
             throw Error(std::string(fn) + ": Expected the number of rows "
                         "of \"x\" to be larger than 1.", 0, 0, fn, "",
-                        std::string("nk:") + fn + ":insufficientSignalLength");
+                        std::string("numkit:") + fn + ":insufficientSignalLength");
         if (f.numel() != x.dims().rows())
             throw Error(std::string(fn) + ": size(x,1) must equal "
                             "numel(f) (got " + std::to_string(x.dims().rows())
                             + " and " + std::to_string(f.numel()) + ").",
                         0, 0, fn, "",
-                        std::string("nk:") + fn + ":BadFrequencyVector");
+                        std::string("numkit:") + fn + ":BadFrequencyVector");
         d.X = x;
         d.F = f;
         d.isTime = false;
@@ -663,17 +663,17 @@ Value spectralFluxFull(const Value &x, const Value &f, double p,
     if (f.type() == ValueType::COMPLEX)
         throw Error("spectralFlux: input 2 (f) must be real.",
                     0, 0, "spectralFlux", "",
-                    "nk:spectralFlux:mustBeReal");
+                    "numkit:spectralFlux:mustBeReal");
     for (size_t i = 0; i < f.numel(); ++i) {
         const double fv = f.elemAsDouble(i);
         if (!(fv >= 0.0))
             throw Error("spectralFlux: input 2 (f) must be nonnegative.",
                         0, 0, "spectralFlux", "",
-                        "nk:spectralFlux:mustBeNonnegative");
+                        "numkit:spectralFlux:mustBeNonnegative");
         if (!std::isfinite(fv))
             throw Error("spectralFlux: input 2 (f) must be finite.",
                         0, 0, "spectralFlux", "",
-                        "nk:spectralFlux:mustBeFinite");
+                        "numkit:spectralFlux:mustBeFinite");
     }
 
     if (timeForm) {
@@ -685,13 +685,13 @@ Value spectralFluxFull(const Value &x, const Value &f, double p,
             throw Error("spectralFlux: the previousSpectrum input is "
                         "only supported for frequency-domain input.",
                         0, 0, "spectralFlux", "",
-                        "nk:spectralFlux:InvalidFluxSyntax");
+                        "numkit:spectralFlux:InvalidFluxSyntax");
         if (finalCondition)
             throw Error("spectralFlux: too many output arguments (the "
                         "final spectrum state is only returned for "
                         "frequency-domain input).",
                         0, 0, "spectralFlux", "",
-                        "nk:spectralFlux:nargoutchk");
+                        "numkit:spectralFlux:nargoutchk");
     }
 
     auto d = prepareInput(mr, x, f, magnitudeSpectrum, "spectralFlux", stft);
@@ -710,7 +710,7 @@ Value spectralFluxFull(const Value &x, const Value &f, double p,
         throw Error("spectralFlux: X must contain at least one frame "
                     "(got a 0-frame spectrum).",
                     0, 0, "spectralFlux", "",
-                    "nk:spectralFlux:emptyFrames");
+                    "numkit:spectralFlux:emptyFrames");
 
     // Optional previous-spectrum state (frequency-domain form): one
     // M×1 column per channel.
@@ -722,7 +722,7 @@ Value spectralFluxFull(const Value &x, const Value &f, double p,
                         + std::to_string(M) + "-by-1 column per channel "
                         + "(got " + std::to_string(C) + " channels).",
                     0, 0, "spectralFlux", "",
-                    "nk:spectralFlux:BadInitialConditions");
+                    "numkit:spectralFlux:BadInitialConditions");
 
     const bool cx = d.X.type() == ValueType::COMPLEX;
     double *od = wantSingle ? nullptr : out.doubleDataMut();

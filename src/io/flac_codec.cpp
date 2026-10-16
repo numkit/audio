@@ -167,7 +167,7 @@ struct FlacStreamInfo {
 FlacStreamInfo parseMetadata(const uint8_t *data, size_t len) {
     if (len < 42 || !isFlacBytes(data, len))
         throw Error("audioread: not a valid FLAC audio stream",
-                    0, 0, "audioread", "", "nk:audioread:badFlacMagic");
+                    0, 0, "audioread", "", "numkit:audioread:badFlacMagic");
 
     FlacStreamInfo info;
     size_t pos = 4;
@@ -259,7 +259,7 @@ AudioData readFlac(const std::uint8_t *data, std::size_t len,
     FlacStreamInfo streamInfo = parseMetadata(data, len);
     if (streamInfo.numChannels == 0 || streamInfo.sampleRate == 0)
         throw Error("audioread: invalid FLAC stream header",
-                    0, 0, "audioread", "", "nk:audioread:badFlacHeader");
+                    0, 0, "audioread", "", "numkit:audioread:badFlacHeader");
 
     const size_t numChannels = streamInfo.numChannels;
     const size_t totalExpected = static_cast<size_t>(streamInfo.totalSamples);

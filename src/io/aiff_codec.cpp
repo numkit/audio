@@ -150,7 +150,7 @@ AudioInfo peekAiff(const std::uint8_t *data, std::size_t len)
 {
     if (!isAiffBytes(data, len))
         throw Error("audioinfo: not a valid AIFF audio stream",
-                    0, 0, "audioinfo", "", "nk:audioinfo:badAiffMagic");
+                    0, 0, "audioinfo", "", "numkit:audioinfo:badAiffMagic");
 
     auto chunks = findAiffChunks(data, len);
     const AiffChunk *commChunk = nullptr;
@@ -163,7 +163,7 @@ AudioInfo peekAiff(const std::uint8_t *data, std::size_t len)
 
     if (!commChunk || commChunk->size < 18)
         throw Error("audioinfo: missing or malformed 'COMM' chunk in AIFF",
-                    0, 0, "audioinfo", "", "nk:audioinfo:badComm");
+                    0, 0, "audioinfo", "", "numkit:audioinfo:badComm");
 
     const uint8_t *c = data + commChunk->offset;
     uint16_t numChannels = readU16BE(c);
@@ -206,7 +206,7 @@ AudioData readAiff(const std::uint8_t *data, std::size_t len,
 {
     if (!isAiffBytes(data, len))
         throw Error("audioread: not a valid AIFF audio stream",
-                    0, 0, "audioread", "", "nk:audioread:badAiffMagic");
+                    0, 0, "audioread", "", "numkit:audioread:badAiffMagic");
 
     auto chunks = findAiffChunks(data, len);
     const AiffChunk *commChunk = nullptr;
@@ -219,11 +219,11 @@ AudioData readAiff(const std::uint8_t *data, std::size_t len,
 
     if (!commChunk || commChunk->size < 18)
         throw Error("audioread: missing or malformed 'COMM' chunk in AIFF",
-                    0, 0, "audioread", "", "nk:audioread:badComm");
+                    0, 0, "audioread", "", "numkit:audioread:badComm");
 
     if (!ssndChunk || ssndChunk->size < 8)
         throw Error("audioread: missing 'SSND' chunk in AIFF",
-                    0, 0, "audioread", "", "nk:audioread:noSsnd");
+                    0, 0, "audioread", "", "numkit:audioread:noSsnd");
 
     const uint8_t *c = data + commChunk->offset;
     uint16_t numChannels = readU16BE(c);
@@ -233,7 +233,7 @@ AudioData readAiff(const std::uint8_t *data, std::size_t len,
 
     if (numChannels == 0)
         throw Error("audioread: zero channels in AIFF",
-                    0, 0, "audioread", "", "nk:audioread:channels");
+                    0, 0, "audioread", "", "numkit:audioread:channels");
 
     uint32_t ssndOffset = readU32BE(data + ssndChunk->offset);
     const uint8_t *rawSamples = data + ssndChunk->offset + 8 + ssndOffset;
@@ -340,7 +340,7 @@ std::vector<std::uint8_t> writeAiffToBytes(const Value &y, double sampleRate,
 
     if (numFrames == 0 || numChannels == 0)
         throw Error("audiowrite: audio matrix cannot be empty",
-                    0, 0, "audiowrite", "", "nk:audiowrite:empty");
+                    0, 0, "audiowrite", "", "numkit:audiowrite:empty");
 
     if (sampleRate <= 0) sampleRate = 44100.0;
     if (bitsPerSample != 8 && bitsPerSample != 16 && bitsPerSample != 24 && bitsPerSample != 32) {
