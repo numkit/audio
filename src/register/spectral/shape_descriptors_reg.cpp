@@ -20,7 +20,49 @@
 namespace numkit::audio {
 namespace detail {
 
-// Per-fn registration adapters share the (x, f) argument shape.
+static StftOptions parseSharedStftOptions(Span<const Value> args,
+                                          std::size_t startIdx,
+                                          const char *fn,
+                                          double *thresholdOut = nullptr)
+{
+    StftOptions stft;
+    for (std::size_t i = startIdx; i < args.size();) {
+        if (!args[i].isChar() && !args[i].isString())
+            throw Error(std::string(fn) + ": unexpected argument at position "
+                        + std::to_string(i + 1) + ".",
+                        0, 0, fn, "", std::string("numkit:") + fn + ":nargin");
+        std::string name = args[i].toString();
+        for (auto &c : name)
+            c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        if (i + 1 >= args.size())
+            throw Error(std::string(fn) + ": '" + name + "' needs a value.",
+                        0, 0, fn, "", std::string("numkit:") + fn + ":nargin");
+        if (name == "window") {
+            stft.Window = args[i + 1];
+            i += 2;
+        } else if (name == "overlaplength") {
+            stft.OverlapLength = args[i + 1];
+            i += 2;
+        } else if (name == "fftlength") {
+            stft.FFTLength = args[i + 1];
+            i += 2;
+        } else if (name == "range") {
+            stft.Range = args[i + 1];
+            i += 2;
+        } else if (thresholdOut && name == "threshold") {
+            *thresholdOut = args[i + 1].toScalar();
+            i += 2;
+        } else {
+            throw Error(std::string(fn) + ": unrecognized name-value argument '"
+                        + name + "'.",
+                        0, 0, fn, "",
+                        std::string("numkit:") + fn + ":TooManyInputs");
+        }
+    }
+    return stft;
+}
+
+// Per-fn registration adapters share the (x, f[, Name, Value]) argument shape.
 #define NUMKIT_SPEC_REG(FN)                                                          \
     void FN##_reg(Span<const Value> args, size_t /*nargout*/,                    \
                   Span<Value> outs, CallContext &ctx)                            \
@@ -28,7 +70,8 @@ namespace detail {
         if (args.size() < 2)                                                     \
             throw Error(#FN ": requires (x, fs) or (X, F)",                      \
                         0, 0, #FN, "", "numkit:" #FN ":nargin");                      \
-        outs[0] = FN(args[0], args[1], ctx.engine->resource());                  \
+        StftOptions stft = parseSharedStftOptions(args, 2, #FN);                 \
+        outs[0] = FN(args[0], args[1], stft, ctx.engine->resource());            \
     }
 
 NUMKIT_SPEC_REG(spectralCentroid)
@@ -51,9 +94,15 @@ void spectralRolloffPoint_reg(Span<const Value> args, size_t /*nargout*/,
                     0, 0, "spectralRolloffPoint", "",
                     "numkit:spectralRolloffPoint:nargin");
     double pct = 0.95;
-    if (args.size() >= 3) pct = args[2].toScalar();
-    outs[0] = spectralRolloffPoint(args[0], args[1], pct,
-                                    ctx.engine->resource());
+    std::size_t nvStart = 2;
+    if (args.size() >= 3 && !args[2].isChar() && !args[2].isString()) {
+        pct = args[2].toScalar();
+        nvStart = 3;
+    }
+    StftOptions stft = parseSharedStftOptions(args, nvStart,
+                                              "spectralRolloffPoint", &pct);
+    outs[0] = spectralRolloffPoint(args[0], args[1], pct, stft,
+                                   ctx.engine->resource());
 }
 
 void spectralFlux_reg(Span<const Value> args, size_t nargout,

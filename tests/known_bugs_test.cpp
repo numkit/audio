@@ -28,3 +28,17 @@ TEST_F(AudioKnownBug, SpectralFluxRowTimeFormRejects)
     catch (...) { threw = true; }
     EXPECT_TRUE(threw);
 }
+
+// bugs/closed/audio/spectral-family-stft-options.md — shared Window /
+// OverlapLength / FFTLength / Range NV options on all spectral* descriptors.
+TEST_F(AudioKnownBug, SpectralFamilyStftOptions)
+{
+    eval("xc = cos(2*pi*(0:159)'/40);");
+    eval("y1 = spectralCentroid(xc, 1600, 'Window', ones(32, 1), 'OverlapLength', 16);");
+    EXPECT_EQ(static_cast<int>(evalScalar("numel(y1)")), 9);
+    eval("y2 = spectralSpread(xc, 1600, 'Window', ones(32, 1), 'OverlapLength', 16, 'FFTLength', 64);");
+    EXPECT_EQ(static_cast<int>(evalScalar("numel(y2)")), 9);
+    eval("y3 = spectralRolloffPoint(xc, 1600, 'Window', ones(32, 1), 'OverlapLength', 16);");
+    EXPECT_EQ(static_cast<int>(evalScalar("numel(y3)")), 9);
+}
+

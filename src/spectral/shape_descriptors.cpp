@@ -445,19 +445,25 @@ Value spectralFlux(const Value &x, const Value &f, double p,
 }
 
 // ── Centroid ──────────────────────────────────────────────────────────
-Value spectralCentroid(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+Value spectralCentroid(const Value &x, const Value &f,
+                       const StftOptions &stft, std::pmr::memory_resource *mr)
 {
-    auto d = prepareInput(mr, x, f, false, "spectralCentroid", {});
+    auto d = prepareInput(mr, x, f, false, "spectralCentroid", stft);
     const double *Fd = d.F.doubleData();
     return perFrameChannel(mr, d.X, d, [Fd](const double *col, size_t M) {
         return centroidOf(col, Fd, M);
     });
 }
+Value spectralCentroid(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+{
+    return spectralCentroid(x, f, StftOptions{}, mr);
+}
 
 // ── Spread ────────────────────────────────────────────────────────────
-Value spectralSpread(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+Value spectralSpread(const Value &x, const Value &f,
+                     const StftOptions &stft, std::pmr::memory_resource *mr)
 {
-    auto d = prepareInput(mr, x, f, false, "spectralSpread", {});
+    auto d = prepareInput(mr, x, f, false, "spectralSpread", stft);
     const double *Fd = d.F.doubleData();
     return perFrameChannel(mr, d.X, d, [Fd](const double *col, size_t M) {
         const double c = centroidOf(col, Fd, M);
@@ -470,12 +476,17 @@ Value spectralSpread(const Value &x, const Value &f, std::pmr::memory_resource *
         return (sumX > 0.0) ? std::sqrt(sumDX / sumX) : 0.0;
     });
 }
+Value spectralSpread(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+{
+    return spectralSpread(x, f, StftOptions{}, mr);
+}
 
 // ── Rolloff point ─────────────────────────────────────────────────────
 Value spectralRolloffPoint(const Value &x, const Value &f, double percentile,
+                           const StftOptions &stft,
                            std::pmr::memory_resource *mr)
 {
-    auto d = prepareInput(mr, x, f, false, "spectralRolloffPoint", {});
+    auto d = prepareInput(mr, x, f, false, "spectralRolloffPoint", stft);
     const double *Fd = d.F.doubleData();
     return perFrameChannel(mr, d.X, d, [Fd, percentile](const double *col, size_t M) {
         double total = 0.0;
@@ -490,11 +501,17 @@ Value spectralRolloffPoint(const Value &x, const Value &f, double percentile,
         return Fd[M - 1];
     });
 }
+Value spectralRolloffPoint(const Value &x, const Value &f, double percentile,
+                           std::pmr::memory_resource *mr)
+{
+    return spectralRolloffPoint(x, f, percentile, StftOptions{}, mr);
+}
 
 // ── Decrease ──────────────────────────────────────────────────────────
-Value spectralDecrease(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+Value spectralDecrease(const Value &x, const Value &f,
+                       const StftOptions &stft, std::pmr::memory_resource *mr)
 {
-    auto d = prepareInput(mr, x, f, false, "spectralDecrease", {});
+    auto d = prepareInput(mr, x, f, false, "spectralDecrease", stft);
     return perFrameChannel(mr, d.X, d, [](const double *col, size_t M) {
         if (M < 2) return 0.0;
         const double X1 = col[0];
@@ -506,14 +523,16 @@ Value spectralDecrease(const Value &x, const Value &f, std::pmr::memory_resource
         return (den > 0.0) ? num / den : 0.0;
     });
 }
+Value spectralDecrease(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+{
+    return spectralDecrease(x, f, StftOptions{}, mr);
+}
 
 // ── Slope ─────────────────────────────────────────────────────────────
-// Ordinary-least-squares regression slope of mean-power-magnitude X
-// vs frequency:
-//   slope = sum((F - mean(F)) .* (X - mean(X))) / sum((F - mean(F))^2)
-Value spectralSlope(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+Value spectralSlope(const Value &x, const Value &f,
+                    const StftOptions &stft, std::pmr::memory_resource *mr)
 {
-    auto d = prepareInput(mr, x, f, false, "spectralSlope", {});
+    auto d = prepareInput(mr, x, f, false, "spectralSlope", stft);
     const double *Fd = d.F.doubleData();
     return perFrameChannel(mr, d.X, d, [Fd](const double *col, size_t M) {
         if (M < 2) return 0.0;
@@ -530,16 +549,17 @@ Value spectralSlope(const Value &x, const Value &f, std::pmr::memory_resource *m
         return (den > 0.0) ? num / den : 0.0;
     });
 }
+Value spectralSlope(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+{
+    return spectralSlope(x, f, StftOptions{}, mr);
+}
 
 // ── Cycle I: Crest / Entropy / Flatness / Kurtosis / Skewness ─────────
-//
-// Match MATLAB R2025b Signal Toolbox semantics (per-frame for time-domain
-// input via shared computeStft + prepareInput).
 
-// spectralCrest = max(X) / mean(X) per column.
-Value spectralCrest(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+Value spectralCrest(const Value &x, const Value &f,
+                    const StftOptions &stft, std::pmr::memory_resource *mr)
 {
-    auto d = prepareInput(mr, x, f, false, "spectralCrest", {});
+    auto d = prepareInput(mr, x, f, false, "spectralCrest", stft);
     return perFrameChannel(mr, d.X, d, [](const double *col, size_t M) {
         if (M == 0) return 0.0;
         double mx = col[0], sm = 0.0;
@@ -548,13 +568,15 @@ Value spectralCrest(const Value &x, const Value &f, std::pmr::memory_resource *m
         return (mean > 0.0) ? mx / mean : 0.0;
     });
 }
-
-// spectralEntropy = -Σ P log2(P) / log2(M) per column, where P = X / Σ X.
-// Matches MATLAB R2025b spectralEntropy with default Scaled=true,
-// Instantaneous=true.
-Value spectralEntropy(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+Value spectralCrest(const Value &x, const Value &f, std::pmr::memory_resource *mr)
 {
-    auto d = prepareInput(mr, x, f, false, "spectralEntropy", {});
+    return spectralCrest(x, f, StftOptions{}, mr);
+}
+
+Value spectralEntropy(const Value &x, const Value &f,
+                      const StftOptions &stft, std::pmr::memory_resource *mr)
+{
+    auto d = prepareInput(mr, x, f, false, "spectralEntropy", stft);
     return perFrameChannel(mr, d.X, d, [](const double *col, size_t M) {
         if (M < 2) return 0.0;
         double sm = 0.0;
@@ -569,13 +591,15 @@ Value spectralEntropy(const Value &x, const Value &f, std::pmr::memory_resource 
         return H / (std::log(static_cast<double>(M)) * inv_log2);
     });
 }
-
-// spectralFlatness = exp(mean(log(X+eps))) / mean(X) per column —
-// geometric mean / arithmetic mean (Peeters 2004), with eps
-// regularization inside the geometric-mean log.
-Value spectralFlatness(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+Value spectralEntropy(const Value &x, const Value &f, std::pmr::memory_resource *mr)
 {
-    auto d = prepareInput(mr, x, f, false, "spectralFlatness", {});
+    return spectralEntropy(x, f, StftOptions{}, mr);
+}
+
+Value spectralFlatness(const Value &x, const Value &f,
+                       const StftOptions &stft, std::pmr::memory_resource *mr)
+{
+    auto d = prepareInput(mr, x, f, false, "spectralFlatness", stft);
     return perFrameChannel(mr, d.X, d, [](const double *col, size_t M) {
         if (M == 0) return 0.0;
         const double eps = std::numeric_limits<double>::epsilon();
@@ -589,13 +613,15 @@ Value spectralFlatness(const Value &x, const Value &f, std::pmr::memory_resource
         return (arith > 0.0) ? geom / arith : 0.0;
     });
 }
-
-// spectralKurtosis = Σ((F-c)⁴ X) / (spread⁴ ΣX) per column — X-weighted
-// 4th central frequency moment normalized by the 4th power of spread
-// (Peeters 2004). NOT the Pearson form — no -3 subtraction.
-Value spectralKurtosis(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+Value spectralFlatness(const Value &x, const Value &f, std::pmr::memory_resource *mr)
 {
-    auto d = prepareInput(mr, x, f, false, "spectralKurtosis", {});
+    return spectralFlatness(x, f, StftOptions{}, mr);
+}
+
+Value spectralKurtosis(const Value &x, const Value &f,
+                       const StftOptions &stft, std::pmr::memory_resource *mr)
+{
+    auto d = prepareInput(mr, x, f, false, "spectralKurtosis", stft);
     const double *Fd = d.F.doubleData();
     return perFrameChannel(mr, d.X, d, [Fd](const double *col, size_t M) {
         if (M < 2) return 0.0;
@@ -616,12 +642,15 @@ Value spectralKurtosis(const Value &x, const Value &f, std::pmr::memory_resource
         return m4 / (spread4 * sumX);
     });
 }
-
-// spectralSkewness = Σ((F-c)³ X) / (spread³ ΣX) per column — X-weighted
-// 3rd central frequency moment normalized by spread³ (Peeters 2004).
-Value spectralSkewness(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+Value spectralKurtosis(const Value &x, const Value &f, std::pmr::memory_resource *mr)
 {
-    auto d = prepareInput(mr, x, f, false, "spectralSkewness", {});
+    return spectralKurtosis(x, f, StftOptions{}, mr);
+}
+
+Value spectralSkewness(const Value &x, const Value &f,
+                       const StftOptions &stft, std::pmr::memory_resource *mr)
+{
+    auto d = prepareInput(mr, x, f, false, "spectralSkewness", stft);
     const double *Fd = d.F.doubleData();
     return perFrameChannel(mr, d.X, d, [Fd](const double *col, size_t M) {
         if (M < 2) return 0.0;
@@ -640,6 +669,10 @@ Value spectralSkewness(const Value &x, const Value &f, std::pmr::memory_resource
         const double spread3 = spread2 * std::sqrt(spread2);
         return m3 / (spread3 * sumX);
     });
+}
+Value spectralSkewness(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+{
+    return spectralSkewness(x, f, StftOptions{}, mr);
 }
 
 // ── Flux ──────────────────────────────────────────────────────────────
