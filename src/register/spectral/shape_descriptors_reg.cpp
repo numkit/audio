@@ -12,6 +12,7 @@
 #include <numkit/audio/spectral/shape_descriptors.hpp>
 
 #include <numkit/sys/plugin.hpp>   // CallContext, ctx.engine->resource()
+#include <numkit/value/argcheck.hpp>
 #include <numkit/value/error.hpp>
 
 #include <string>
@@ -67,9 +68,7 @@ static StftOptions parseSharedStftOptions(Span<const Value> args,
     void FN##_reg(Span<const Value> args, size_t /*nargout*/,                    \
                   Span<Value> outs, CallContext &ctx)                            \
     {                                                                            \
-        if (args.size() < 2)                                                     \
-            throw Error(#FN ": requires (x, fs) or (X, F)",                      \
-                        0, 0, #FN, "", "numkit:" #FN ":nargin");                      \
+        argcheck::checkNargin(args.size(), 2, #FN);                              \
         StftOptions stft = parseSharedStftOptions(args, 2, #FN);                 \
         outs[0] = FN(args[0], args[1], stft, ctx.engine->resource());            \
     }
@@ -89,10 +88,7 @@ NUMKIT_SPEC_REG(spectralSkewness)
 void spectralRolloffPoint_reg(Span<const Value> args, size_t /*nargout*/,
                               Span<Value> outs, CallContext &ctx)
 {
-    if (args.size() < 2)
-        throw Error("spectralRolloffPoint: requires (x, fs [, threshold])",
-                    0, 0, "spectralRolloffPoint", "",
-                    "numkit:spectralRolloffPoint:nargin");
+    argcheck::checkNargin(args.size(), 2, "spectralRolloffPoint");
     double pct = 0.95;
     std::size_t nvStart = 2;
     if (args.size() >= 3 && !args[2].isChar() && !args[2].isString()) {
@@ -113,9 +109,7 @@ void spectralFlux_reg(Span<const Value> args, size_t nargout,
     // ∈ {'power','magnitude'} (validatestring — unique prefixes match),
     // and the four STFT-reshaping options Window / OverlapLength /
     // FFTLength / Range (validated inside the shared computeStft port).
-    if (args.size() < 2)
-        throw Error("spectralFlux: requires (x, f[, ic][, Name=Value])",
-                    0, 0, "spectralFlux", "", "numkit:spectralFlux:nargin");
+    argcheck::checkNargin(args.size(), 2, "spectralFlux");
     auto *mr = ctx.engine->resource();
     const Value &x = args[0];
     const Value &f = args[1];

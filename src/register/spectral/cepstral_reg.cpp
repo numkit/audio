@@ -23,10 +23,7 @@ void cepstralCoefficients_reg(Span<const Value> args, size_t /*nargout*/,
     // pairs ('NumCoeffs', 'Rectification' — names match case-
     // insensitively with unambiguous prefixes); a positional second
     // argument is TooManyInputs in the reference.
-    if (args.empty())
-        throw Error("cepstralCoefficients: requires (S[, Name=Value])",
-                    0, 0, "cepstralCoefficients", "",
-                    "numkit:cepstralCoefficients:nargin");
+    argcheck::checkNargin(args.size(), 1, "cepstralCoefficients");
     int nc = 13;
     CepstralRect rect = CepstralRect::Log;
     const Value &S = args[0];
@@ -77,9 +74,7 @@ void cepstralCoefficients_reg(Span<const Value> args, size_t /*nargout*/,
 void mfcc_reg(Span<const Value> args, size_t nargout,
               Span<Value> outs, CallContext &ctx)
 {
-    if (args.size() < 2)
-        throw Error("mfcc: requires (x, fs [, NumCoeffs])",
-                    0, 0, "mfcc", "", "numkit:mfcc:nargin");
+    argcheck::checkNargin(args.size(), 2, 3, "mfcc");
     int nc = 13;
     if (args.size() >= 3) nc = argcheck::expectedPositiveInteger(
         argcheck::expectedReal(args[2], 3, "numCoeffs", "mfcc"), 3, "numCoeffs", "mfcc");
@@ -93,9 +88,7 @@ void mfcc_reg(Span<const Value> args, size_t nargout,
 void gtcc_reg(Span<const Value> args, size_t nargout,
               Span<Value> outs, CallContext &ctx)
 {
-    if (args.size() < 2)
-        throw Error("gtcc: requires (x, fs [, NumCoeffs])",
-                    0, 0, "gtcc", "", "numkit:gtcc:nargin");
+    argcheck::checkNargin(args.size(), 2, 3, "gtcc");
     int nc = 13;
     if (args.size() >= 3) nc = argcheck::expectedPositiveInteger(
         argcheck::expectedReal(args[2], 3, "numCoeffs", "gtcc"), 3, "numCoeffs", "gtcc");

@@ -10,6 +10,7 @@
 #include <numkit/audio/features/pitch_harmonics.hpp>
 
 #include <numkit/sys/plugin.hpp>   // CallContext, ctx.engine->resource()
+#include <numkit/value/argcheck.hpp>
 #include <numkit/value/error.hpp>
 
 #include <algorithm>
@@ -34,9 +35,7 @@ namespace detail {
 void pitch_reg(Span<const Value> args, size_t /*nargout*/,
                Span<Value> outs, CallContext &ctx)
 {
-    if (args.size() < 2)
-        throw Error("pitch: requires (x, fs)",
-                    0, 0, "pitch", "", "numkit:pitch:nargin");
+    argcheck::checkNargin(args.size(), 2, "pitch");
     std::string method = "NCF";
     double minF = 50.0, maxF = 400.0;
     // Parse Name-Value pairs starting at args[2].
@@ -81,9 +80,7 @@ void pitch_reg(Span<const Value> args, size_t /*nargout*/,
 void harmonicRatio_reg(Span<const Value> args, size_t /*nargout*/,
                        Span<Value> outs, CallContext &ctx)
 {
-    if (args.size() < 2)
-        throw Error("harmonicRatio: requires (x, fs)",
-                    0, 0, "harmonicRatio", "", "numkit:harmonicRatio:nargin");
+    argcheck::checkNargin(args.size(), 2, 2, "harmonicRatio");
     outs[0] = harmonicRatio(args[0], args[1].toScalar(), ctx.engine->resource());
 }
 

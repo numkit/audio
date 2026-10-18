@@ -7,7 +7,7 @@
 #include "io/midi_codec.hpp"
 
 #include <numkit/sys/plugin.hpp>
-#include <numkit/sys/plugin.hpp>
+#include <numkit/value/argcheck.hpp>
 #include <numkit/value/error.hpp>
 #include <numkit/value/value.hpp>
 
@@ -34,10 +34,7 @@ std::string lowerExt(const std::string &path) {
 void audioread_reg(Span<const Value> args, size_t nargout, Span<Value> outs,
                    CallContext &ctx)
 {
-    if (args.empty()) {
-        throw Error("audioread: requires a filename",
-                    0, 0, "audioread", "", "numkit:audioread:nargin");
-    }
+    argcheck::checkNargin(args.size(), 1, 3, "audioread");
     if (!args[0].isChar() && !args[0].isString()) {
         throw Error("audioread: filename must be a string",
                     0, 0, "audioread", "", "numkit:audioread:type");
@@ -83,10 +80,7 @@ void audioread_reg(Span<const Value> args, size_t nargout, Span<Value> outs,
 void audiowrite_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> /*outs*/,
                     CallContext &ctx)
 {
-    if (args.size() < 3) {
-        throw Error("audiowrite: requires filename, audio data, and sample rate",
-                    0, 0, "audiowrite", "", "numkit:audiowrite:nargin");
-    }
+    argcheck::checkNargin(args.size(), 3, "audiowrite");
     if (!args[0].isChar() && !args[0].isString()) {
         throw Error("audiowrite: filename must be a string",
                     0, 0, "audiowrite", "", "numkit:audiowrite:type");
@@ -141,10 +135,7 @@ void audiowrite_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> /*ou
 void audioinfo_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> outs,
                    CallContext &ctx)
 {
-    if (args.empty()) {
-        throw Error("audioinfo: requires a filename",
-                    0, 0, "audioinfo", "", "numkit:audioinfo:nargin");
-    }
+    argcheck::checkNargin(args.size(), 1, 1, "audioinfo");
     if (!args[0].isChar() && !args[0].isString()) {
         throw Error("audioinfo: filename must be a string",
                     0, 0, "audioinfo", "", "numkit:audioinfo:type");
@@ -180,10 +171,7 @@ void audioinfo_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> outs,
 void midiread_reg(Span<const Value> args, size_t nargout, Span<Value> outs,
                   CallContext &ctx)
 {
-    if (args.empty()) {
-        throw Error("midiread: requires a filename",
-                    0, 0, "midiread", "", "numkit:midiread:nargin");
-    }
+    argcheck::checkNargin(args.size(), 1, 1, "midiread");
     const std::string path = args[0].toString();
     auto rp = ctx.engine->resolvePath(path);
     if (!rp.fs || !rp.fs->exists(rp.path)) {
@@ -212,10 +200,7 @@ void midiread_reg(Span<const Value> args, size_t nargout, Span<Value> outs,
 void midiwrite_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> /*outs*/,
                    CallContext &ctx)
 {
-    if (args.size() < 2) {
-        throw Error("midiwrite: requires filename and notes matrix",
-                    0, 0, "midiwrite", "", "numkit:midiwrite:nargin");
-    }
+    argcheck::checkNargin(args.size(), 2, 4, "midiwrite");
     const std::string path = args[0].toString();
     const Value &notes = args[1];
 
@@ -236,10 +221,7 @@ void midiwrite_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> /*out
 void midiinfo_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> outs,
                   CallContext &ctx)
 {
-    if (args.empty()) {
-        throw Error("midiinfo: requires a filename",
-                    0, 0, "midiinfo", "", "numkit:midiinfo:nargin");
-    }
+    argcheck::checkNargin(args.size(), 1, 1, "midiinfo");
     const std::string path = args[0].toString();
     auto rp = ctx.engine->resolvePath(path);
     if (!rp.fs || !rp.fs->exists(rp.path)) {
