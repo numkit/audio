@@ -5,6 +5,7 @@
 
 #include "aiff_codec.hpp"
 
+#include <numkit/value/argcheck.hpp>
 #include <numkit/value/value.hpp>
 #include <numkit/value/error.hpp>
 
@@ -144,13 +145,29 @@ std::vector<AiffChunk> findAiffChunks(const uint8_t *data, size_t len) {
     return chunks;
 }
 
+void peekAiff_argcheck(const uint8_t *data, size_t len) {
+    if (!isAiffBytes(data, len))
+        throw Error("audioinfo: not a valid AIFF audio stream",
+                    0, 0, "audioinfo", "", "numkit:audioinfo:badAiffMagic");
+}
+
+void readAiff_argcheck(const uint8_t *data, size_t len) {
+    if (!isAiffBytes(data, len))
+        throw Error("audioread: not a valid AIFF audio stream",
+                    0, 0, "audioread", "", "numkit:audioread:badAiffMagic");
+}
+
+void writeAiffToBytes_argcheck(size_t numFrames, size_t numChannels) {
+    if (numFrames == 0 || numChannels == 0)
+        throw Error("audiowrite: audio matrix cannot be empty",
+                    0, 0, "audiowrite", "", "numkit:audiowrite:empty");
+}
+
 } // anonymous
 
 AudioInfo peekAiff(const std::uint8_t *data, std::size_t len)
 {
-    if (!isAiffBytes(data, len))
-        throw Error("audioinfo: not a valid AIFF audio stream",
-                    0, 0, "audioinfo", "", "numkit:audioinfo:badAiffMagic");
+    peekAiff_argcheck(data, len);
 
     auto chunks = findAiffChunks(data, len);
     const AiffChunk *commChunk = nullptr;
@@ -204,9 +221,7 @@ AudioData readAiff(const std::uint8_t *data, std::size_t len,
                    bool nativeType,
                    std::pmr::memory_resource *mr)
 {
-    if (!isAiffBytes(data, len))
-        throw Error("audioread: not a valid AIFF audio stream",
-                    0, 0, "audioread", "", "numkit:audioread:badAiffMagic");
+    readAiff_argcheck(data, len);
 
     auto chunks = findAiffChunks(data, len);
     const AiffChunk *commChunk = nullptr;
@@ -338,9 +353,7 @@ std::vector<std::uint8_t> writeAiffToBytes(const Value &y, double sampleRate,
     const size_t numFrames = d.rows();
     const size_t numChannels = (d.ndim() >= 2) ? d.cols() : 1;
 
-    if (numFrames == 0 || numChannels == 0)
-        throw Error("audiowrite: audio matrix cannot be empty",
-                    0, 0, "audiowrite", "", "numkit:audiowrite:empty");
+    writeAiffToBytes_argcheck(numFrames, numChannels);
 
     if (sampleRate <= 0) sampleRate = 44100.0;
     if (bitsPerSample != 8 && bitsPerSample != 16 && bitsPerSample != 24 && bitsPerSample != 32) {

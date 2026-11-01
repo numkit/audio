@@ -21,6 +21,7 @@
 // Compute-only TU: Value substrate + Error, no engine. The hz2mel / mel2hz
 // / hz2bark / bark2hz / hz2erb / erb2hz / phon2sone / sone2phon builtins
 // (CallContext wrappers) live in scale/freq_scales_reg.cpp.
+#include <numkit/value/argcheck.hpp>
 #include <numkit/value/value.hpp>
 #include <numkit/value/error.hpp>
 
@@ -55,11 +56,18 @@ inline double erbScale()
     return std::log(10.0) * 1000.0 / (24.673 * 4.368);
 }
 
+void freq_scales_argcheck(const Value &x, const char *fn)
+{
+    (void)x;
+    (void)fn;
+}
+
 } // namespace
 
 // ── Mel (O'Shaughnessy default) ───────────────────────────────────────
 Value hz2mel(const Value &hz, std::pmr::memory_resource *mr)
 {
+    freq_scales_argcheck(hz, "hz2mel");
     return elementwise(mr, hz, [](double f) {
         return 2595.0 * std::log10(1.0 + f / 700.0);
     });
@@ -67,6 +75,7 @@ Value hz2mel(const Value &hz, std::pmr::memory_resource *mr)
 
 Value mel2hz(const Value &mel, std::pmr::memory_resource *mr)
 {
+    freq_scales_argcheck(mel, "mel2hz");
     return elementwise(mr, mel, [](double m) {
         return 700.0 * (std::pow(10.0, m / 2595.0) - 1.0);
     });
@@ -75,6 +84,7 @@ Value mel2hz(const Value &mel, std::pmr::memory_resource *mr)
 // ── Bark (Traunmüller with corrections) ───────────────────────────────
 Value hz2bark(const Value &hz, std::pmr::memory_resource *mr)
 {
+    freq_scales_argcheck(hz, "hz2bark");
     return elementwise(mr, hz, [](double f) {
         double bark = 26.81 * f / (1960.0 + f) - 0.53;
         if (bark < 2.0)        bark = 0.85 * bark + 0.3;
@@ -85,6 +95,7 @@ Value hz2bark(const Value &hz, std::pmr::memory_resource *mr)
 
 Value bark2hz(const Value &bark, std::pmr::memory_resource *mr)
 {
+    freq_scales_argcheck(bark, "bark2hz");
     return elementwise(mr, bark, [](double b) {
         if (b < 2.0)         b = (b - 0.3) / 0.85;
         else if (b > 20.1)   b = (b + 0.22 * 20.1) / 1.22;
@@ -98,6 +109,7 @@ Value bark2hz(const Value &bark, std::pmr::memory_resource *mr)
 // ── ERB (Glasberg-Moore) ──────────────────────────────────────────────
 Value hz2erb(const Value &hz, std::pmr::memory_resource *mr)
 {
+    freq_scales_argcheck(hz, "hz2erb");
     const double scale = erbScale();
     return elementwise(mr, hz, [scale](double f) {
         return scale * std::log10(1.0 + 0.004368 * f);
@@ -106,6 +118,7 @@ Value hz2erb(const Value &hz, std::pmr::memory_resource *mr)
 
 Value erb2hz(const Value &erb, std::pmr::memory_resource *mr)
 {
+    freq_scales_argcheck(erb, "erb2hz");
     const double scale = erbScale();
     return elementwise(mr, erb, [scale](double e) {
         return (std::pow(10.0, e / scale) - 1.0) / 0.004368;
@@ -175,6 +188,7 @@ inline double linearExtrap(const double *xs, const double *ys, size_t N, double 
 Value phon2sone(const Value &phon, bool standardIs532_2,
                 std::pmr::memory_resource *mr)
 {
+    freq_scales_argcheck(phon, "phon2sone");
     if (!standardIs532_2) {
         return elementwise(mr, phon, [](double p) {
             if (p < 40.0) return std::pow(p / 40.0, 1.0 / 0.35);
@@ -246,6 +260,7 @@ Value phon2sone(const Value &phon, bool standardIs532_2,
 Value sone2phon(const Value &sone, bool standardIs532_2,
                 std::pmr::memory_resource *mr)
 {
+    freq_scales_argcheck(sone, "sone2phon");
     if (!standardIs532_2) {
         return elementwise(mr, sone, [](double s) {
             if (s < 1.0) return 40.0 * std::pow(s, 0.35);

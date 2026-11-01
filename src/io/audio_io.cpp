@@ -12,6 +12,7 @@
 #include "au_codec.hpp"
 #include "midi_codec.hpp"
 
+#include <numkit/value/argcheck.hpp>
 #include <numkit/value/value.hpp>
 #include <numkit/value/error.hpp>
 
@@ -62,6 +63,29 @@ void writeFileDirect(const std::string &path, const std::vector<uint8_t> &data) 
     os.write(reinterpret_cast<const char *>(data.data()), static_cast<std::streamsize>(data.size()));
 }
 
+void audioread_argcheck(const std::string &fmt) {
+    if (fmt.empty()) {
+        throw Error("audioread: unrecognized or unsupported audio file format",
+                    0, 0, "audioread", "", "numkit:audioread:unsupportedFormat");
+    }
+}
+
+void audioinfo_argcheck(const std::string &fmt) {
+    if (fmt.empty()) {
+        throw Error("audioinfo: unrecognized or unsupported audio file format",
+                    0, 0, "audioinfo", "", "numkit:audioinfo:unsupportedFormat");
+    }
+}
+
+void audiowrite_argcheck(const std::string &fmt, const std::string &format) {
+    if (fmt != "wav" && fmt != "wave" &&
+        fmt != "aiff" && fmt != "aif" && fmt != "aifc" &&
+        fmt != "au" && fmt != "snd") {
+        throw Error("audiowrite: unsupported format for audio encoding: '" + format + "'",
+                    0, 0, "audiowrite", "", "numkit:audiowrite:unsupportedFormat");
+    }
+}
+
 } // anonymous
 
 AudioData audioreadFromBytes(const std::uint8_t *data, std::size_t len,
@@ -70,6 +94,7 @@ AudioData audioreadFromBytes(const std::uint8_t *data, std::size_t len,
                             std::pmr::memory_resource *mr)
 {
     std::string fmt = detectAudioFormat(data, len);
+    audioread_argcheck(fmt);
 
     if (fmt == "wav") {
         return readWav(data, len, startSample, endSample, nativeType, mr);
@@ -99,6 +124,7 @@ AudioData audioreadFromBytes(const std::string &bytes,
 AudioInfo audioinfoFromBytes(const std::uint8_t *data, std::size_t len)
 {
     std::string fmt = detectAudioFormat(data, len);
+    audioinfo_argcheck(fmt);
 
     if (fmt == "wav") {
         return peekWav(data, len);
@@ -130,6 +156,7 @@ std::vector<std::uint8_t> audiowriteToBytes(const Value &y, double sampleRate,
 {
     std::string fmt = format;
     for (char &c : fmt) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    audiowrite_argcheck(fmt, format);
 
     if (fmt == "wav" || fmt == "wave") {
         return writeWavToBytes(y, sampleRate, bitsPerSample, title, artist, comment);

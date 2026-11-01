@@ -28,6 +28,7 @@
 // Compute-only TU: Value substrate + Error, no engine. The
 // cepstralCoefficients / mfcc / gtcc builtins (CallContext wrappers) live
 // in spectral/cepstral_reg.cpp.
+#include <numkit/value/argcheck.hpp>
 #include <numkit/value/value.hpp>
 #include <numkit/value/error.hpp>
 #include <numkit/value/scratch.hpp>

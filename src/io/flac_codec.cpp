@@ -5,6 +5,7 @@
 
 #include "flac_codec.hpp"
 
+#include <numkit/value/argcheck.hpp>
 #include <numkit/value/value.hpp>
 #include <numkit/value/error.hpp>
 
@@ -164,10 +165,20 @@ struct FlacStreamInfo {
     std::string comment;
 };
 
-FlacStreamInfo parseMetadata(const uint8_t *data, size_t len) {
+void flac_argcheck(const uint8_t *data, size_t len) {
     if (len < 42 || !isFlacBytes(data, len))
         throw Error("audioread: not a valid FLAC audio stream",
                     0, 0, "audioread", "", "numkit:audioread:badFlacMagic");
+}
+
+void readFlac_argcheck(const FlacStreamInfo &streamInfo) {
+    if (streamInfo.numChannels == 0 || streamInfo.sampleRate == 0)
+        throw Error("audioread: invalid FLAC stream header",
+                    0, 0, "audioread", "", "numkit:audioread:badFlacHeader");
+}
+
+FlacStreamInfo parseMetadata(const uint8_t *data, size_t len) {
+    flac_argcheck(data, len);
 
     FlacStreamInfo info;
     size_t pos = 4;
@@ -257,9 +268,7 @@ AudioData readFlac(const std::uint8_t *data, std::size_t len,
                    std::pmr::memory_resource *mr)
 {
     FlacStreamInfo streamInfo = parseMetadata(data, len);
-    if (streamInfo.numChannels == 0 || streamInfo.sampleRate == 0)
-        throw Error("audioread: invalid FLAC stream header",
-                    0, 0, "audioread", "", "numkit:audioread:badFlacHeader");
+    readFlac_argcheck(streamInfo);
 
     const size_t numChannels = streamInfo.numChannels;
     const size_t totalExpected = static_cast<size_t>(streamInfo.totalSamples);
@@ -273,6 +282,7 @@ AudioData readFlac(const std::uint8_t *data, std::size_t len,
     const uint32_t sampleRateTable[16] = {
         0, 88200, 176400, 192000, 8000, 16000, 22050, 24000, 32000, 44100, 48000, 96000, 0, 0, 0, 0
     };
+    (void)sampleRateTable;
 
     while (!br.eof()) {
         // Sync code: 14 bits of 11111111111110 (0x3FFE)
@@ -292,7 +302,7 @@ AudioData readFlac(const std::uint8_t *data, std::size_t len,
         uint32_t chanAssign = br.readBits(4);
         uint32_t sampleSizeCode = br.readBits(3);
         uint32_t reserved2 = br.readBits(1);
-        (void)reserved1; (void)reserved2;
+        (void)reserved1; (void)reserved2; (void)blockingStrategy; (void)sampleSizeCode;
 
         if (blockSizeCode == 0) break; // Invalid
 
@@ -351,11 +361,10 @@ AudioData readFlac(const std::uint8_t *data, std::size_t len,
                 // Residual decoding
                 uint32_t codingMethod = br.readBits(2);
                 uint32_t partitionOrder = br.readBits(4);
-                size_t numPartitions = 1u << partitionOrder;
+                size_t numPartitions = 1ULL << partitionOrder;
                 unsigned riceParamBits = (codingMethod == 0) ? 4 : 5;
                 unsigned riceEscape = (codingMethod == 0) ? 0x0F : 0x1F;
 
-                size_t sampleIdx = order;
                 for (size_t p = 0; p < numPartitions; ++p) {
                     size_t pStart = (p == 0) ? order : (p * blockSize / numPartitions);
                     size_t pEnd = (p + 1) * blockSize / numPartitions;
@@ -395,7 +404,7 @@ AudioData readFlac(const std::uint8_t *data, std::size_t len,
                 // Residual decoding
                 uint32_t codingMethod = br.readBits(2);
                 uint32_t partitionOrder = br.readBits(4);
-                size_t numPartitions = 1u << partitionOrder;
+                size_t numPartitions = 1ULL << partitionOrder;
                 unsigned riceParamBits = (codingMethod == 0) ? 4 : 5;
                 unsigned riceEscape = (codingMethod == 0) ? 0x0F : 0x1F;
 

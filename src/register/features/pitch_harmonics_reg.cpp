@@ -44,11 +44,11 @@ void pitch_reg(Span<const Value> args, size_t /*nargout*/,
             continue;
         std::string name = args[i].toString();
         std::transform(name.begin(), name.end(), name.begin(),
-                        [](unsigned char c) { return std::tolower(c); });
+                        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
         if (name == "method") {
             std::string m = args[i + 1].toString();
             std::transform(m.begin(), m.end(), m.begin(),
-                            [](unsigned char c) { return std::toupper(c); });
+                            [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
             method = m;
         } else if (name == "range") {
             const Value &r = args[i + 1];

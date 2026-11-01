@@ -33,6 +33,7 @@
 // Compute-only TU: Value substrate + Error, no engine. The pitch /
 // harmonicRatio builtins (CallContext wrappers) live in
 // features/pitch_harmonics_reg.cpp.
+#include <numkit/value/argcheck.hpp>
 #include <numkit/value/value.hpp>
 #include <numkit/value/error.hpp>
 #include <numkit/value/scratch.hpp>

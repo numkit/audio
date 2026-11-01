@@ -5,6 +5,7 @@
 
 #include "au_codec.hpp"
 
+#include <numkit/value/argcheck.hpp>
 #include <numkit/value/value.hpp>
 #include <numkit/value/error.hpp>
 
@@ -104,13 +105,29 @@ inline void writeI24BE(std::vector<uint8_t> &buf, int32_t v) {
     buf.push_back(static_cast<uint8_t>(v & 0xFF));
 }
 
+void peekAu_argcheck(const uint8_t *data, size_t len) {
+    if (!isAuBytes(data, len) || len < 24)
+        throw Error("audioinfo: not a valid AU/SND audio stream",
+                    0, 0, "audioinfo", "", "numkit:audioinfo:badAuMagic");
+}
+
+void readAu_argcheck(const uint8_t *data, size_t len) {
+    if (!isAuBytes(data, len) || len < 24)
+        throw Error("audioread: not a valid AU/SND audio stream",
+                    0, 0, "audioread", "", "numkit:audioread:badAuMagic");
+}
+
+void writeAuToBytes_argcheck(size_t numFrames, size_t numChannels) {
+    if (numFrames == 0 || numChannels == 0)
+        throw Error("audiowrite: audio matrix cannot be empty",
+                    0, 0, "audiowrite", "", "numkit:audiowrite:empty");
+}
+
 } // anonymous
 
 AudioInfo peekAu(const std::uint8_t *data, std::size_t len)
 {
-    if (!isAuBytes(data, len) || len < 24)
-        throw Error("audioinfo: not a valid AU/SND audio stream",
-                    0, 0, "audioinfo", "", "numkit:audioinfo:badAuMagic");
+    peekAu_argcheck(data, len);
 
     uint32_t dataOffset = readU32BE(data + 4);
     uint32_t dataSize   = readU32BE(data + 8);
@@ -163,9 +180,7 @@ AudioData readAu(const std::uint8_t *data, std::size_t len,
                  bool nativeType,
                  std::pmr::memory_resource *mr)
 {
-    if (!isAuBytes(data, len) || len < 24)
-        throw Error("audioread: not a valid AU/SND audio stream",
-                    0, 0, "audioread", "", "numkit:audioread:badAuMagic");
+    readAu_argcheck(data, len);
 
     uint32_t dataOffset = readU32BE(data + 4);
     uint32_t dataSize   = readU32BE(data + 8);
@@ -285,9 +300,7 @@ std::vector<std::uint8_t> writeAuToBytes(const Value &y, double sampleRate,
     const size_t numFrames = d.rows();
     const size_t numChannels = (d.ndim() >= 2) ? d.cols() : 1;
 
-    if (numFrames == 0 || numChannels == 0)
-        throw Error("audiowrite: audio matrix cannot be empty",
-                    0, 0, "audiowrite", "", "numkit:audiowrite:empty");
+    writeAuToBytes_argcheck(numFrames, numChannels);
 
     if (sampleRate <= 0) sampleRate = 44100.0;
     if (bitsPerSample != 8 && bitsPerSample != 16 && bitsPerSample != 24 && bitsPerSample != 32) {

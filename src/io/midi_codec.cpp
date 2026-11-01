@@ -5,6 +5,7 @@
 
 #include "midi_codec.hpp"
 
+#include <numkit/value/argcheck.hpp>
 #include <numkit/value/value.hpp>
 #include <numkit/value/error.hpp>
 
@@ -106,13 +107,27 @@ double tickToTime(uint64_t tick, const std::vector<TempoPoint> &tempoMap, uint16
     return pt.timeSec + deltaTicks * secondsPerTick;
 }
 
+void peekMidi_argcheck(const uint8_t *data, size_t len) {
+    if (!isMidiBytes(data, len) || len < 14)
+        throw Error("midiinfo: not a valid MIDI file (missing MThd header)",
+                    0, 0, "midiinfo", "", "numkit:midiinfo:badMagic");
+}
+
+void readMidi_argcheck(const uint8_t *data, size_t len) {
+    if (!isMidiBytes(data, len) || len < 14)
+        throw Error("midiread: not a valid MIDI file (missing MThd header)",
+                    0, 0, "midiread", "", "numkit:midiread:badMagic");
+}
+
+void writeMidiToBytes_argcheck(const Value &notesMatrix) {
+    (void)notesMatrix;
+}
+
 } // anonymous
 
 MidiInfo peekMidi(const std::uint8_t *data, std::size_t len)
 {
-    if (!isMidiBytes(data, len) || len < 14)
-        throw Error("midiinfo: not a valid MIDI file (missing MThd header)",
-                    0, 0, "midiinfo", "", "numkit:midiinfo:badMagic");
+    peekMidi_argcheck(data, len);
 
     uint32_t headerLen = readU32BE(data + 4);
     if (headerLen < 6)
@@ -206,9 +221,7 @@ MidiInfo peekMidi(const std::uint8_t *data, std::size_t len)
 Value readMidi(const std::uint8_t *data, std::size_t len,
                std::pmr::memory_resource *mr)
 {
-    if (!isMidiBytes(data, len) || len < 14)
-        throw Error("midiread: not a valid MIDI file (missing MThd header)",
-                    0, 0, "midiread", "", "numkit:midiread:badMagic");
+    readMidi_argcheck(data, len);
 
     uint32_t headerLen = readU32BE(data + 4);
     uint16_t format = readU16BE(data + 8);
@@ -347,6 +360,7 @@ std::vector<std::uint8_t> writeMidiToBytes(const Value &notesMatrix,
                                            uint16_t ticksPerQuarterNote,
                                            double tempoBpm)
 {
+    writeMidiToBytes_argcheck(notesMatrix);
     const auto &d = notesMatrix.dims();
     size_t numNotes = d.rows();
     if (ticksPerQuarterNote == 0) ticksPerQuarterNote = 480;

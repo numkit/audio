@@ -5,6 +5,7 @@
 
 #include "mp3_codec.hpp"
 
+#include <numkit/value/argcheck.hpp>
 #include <numkit/value/value.hpp>
 #include <numkit/value/error.hpp>
 
@@ -242,6 +243,18 @@ std::vector<double> createSynthesisWindow() {
     return D;
 }
 
+void peekMp3_argcheck(bool found) {
+    if (!found)
+        throw Error("audioinfo: could not find valid MPEG Audio Layer III frame sync",
+                    0, 0, "audioinfo", "", "numkit:audioinfo:badMp3Sync");
+}
+
+void readMp3_argcheck(bool found) {
+    if (!found)
+        throw Error("audioread: could not find valid MPEG Audio Layer III frame sync",
+                    0, 0, "audioread", "", "numkit:audioread:badMp3Sync");
+}
+
 } // anonymous
 
 AudioInfo peekMp3(const std::uint8_t *data, std::size_t len)
@@ -260,9 +273,7 @@ AudioInfo peekMp3(const std::uint8_t *data, std::size_t len)
         ++pos;
     }
 
-    if (!found)
-        throw Error("audioinfo: could not find valid MPEG Audio Layer III frame sync",
-                    0, 0, "audioinfo", "", "numkit:audioinfo:badMp3Sync");
+    peekMp3_argcheck(found);
 
     AudioInfo info;
     info.format = "mp3";
@@ -304,9 +315,7 @@ AudioData readMp3(const std::uint8_t *data, std::size_t len,
         ++pos;
     }
 
-    if (!found)
-        throw Error("audioread: could not find valid MPEG Audio Layer III frame sync",
-                    0, 0, "audioread", "", "numkit:audioread:badMp3Sync");
+    readMp3_argcheck(found);
 
     const size_t numChannels = firstHdr.numChannels;
     const double sampleRate = static_cast<double>(firstHdr.sampleRate);

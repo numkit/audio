@@ -23,6 +23,7 @@
 
 // Compute-only TU: Value substrate + Error, no engine. The spectral*
 // builtins (CallContext wrappers) live in spectral/shape_descriptors_reg.cpp.
+#include <numkit/value/argcheck.hpp>
 #include <numkit/value/value.hpp>
 #include <numkit/value/error.hpp>
 #include <numkit/value/scratch.hpp>

@@ -5,6 +5,7 @@
 
 #include "wav_codec.hpp"
 
+#include <numkit/value/argcheck.hpp>
 #include <numkit/value/value.hpp>
 #include <numkit/value/error.hpp>
 
@@ -167,13 +168,29 @@ void parseListInfo(const uint8_t *data, size_t len, size_t offset, size_t size,
     }
 }
 
+void peekWav_argcheck(const uint8_t *data, size_t len) {
+    if (!isWavBytes(data, len))
+        throw Error("audioinfo: not a valid RIFF/WAVE audio stream",
+                    0, 0, "audioinfo", "", "numkit:audioinfo:badMagic");
+}
+
+void readWav_argcheck(const uint8_t *data, size_t len) {
+    if (!isWavBytes(data, len))
+        throw Error("audioread: not a valid RIFF/WAVE audio stream",
+                    0, 0, "audioread", "", "numkit:audioread:badMagic");
+}
+
+void writeWavToBytes_argcheck(size_t numFrames, size_t numChannels) {
+    if (numFrames == 0 || numChannels == 0)
+        throw Error("audiowrite: audio matrix cannot be empty",
+                    0, 0, "audiowrite", "", "numkit:audiowrite:empty");
+}
+
 } // anonymous
 
 AudioInfo peekWav(const std::uint8_t *data, std::size_t len)
 {
-    if (!isWavBytes(data, len))
-        throw Error("audioinfo: not a valid RIFF/WAVE audio stream",
-                    0, 0, "audioinfo", "", "numkit:audioinfo:badMagic");
+    peekWav_argcheck(data, len);
 
     auto chunks = findChunks(data, len);
     const RiffChunk *fmtChunk = nullptr;
@@ -238,9 +255,7 @@ AudioData readWav(const std::uint8_t *data, std::size_t len,
                   bool nativeType,
                   std::pmr::memory_resource *mr)
 {
-    if (!isWavBytes(data, len))
-        throw Error("audioread: not a valid RIFF/WAVE audio stream",
-                    0, 0, "audioread", "", "numkit:audioread:badMagic");
+    readWav_argcheck(data, len);
 
     auto chunks = findChunks(data, len);
     const RiffChunk *fmtChunk = nullptr;
@@ -415,9 +430,7 @@ std::vector<std::uint8_t> writeWavToBytes(const Value &y, double sampleRate,
     const size_t numFrames = d.rows();
     const size_t numChannels = (d.ndim() >= 2) ? d.cols() : 1;
 
-    if (numFrames == 0 || numChannels == 0)
-        throw Error("audiowrite: audio matrix cannot be empty",
-                    0, 0, "audiowrite", "", "numkit:audiowrite:empty");
+    writeWavToBytes_argcheck(numFrames, numChannels);
 
     if (sampleRate <= 0) sampleRate = 44100.0;
 

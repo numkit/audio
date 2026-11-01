@@ -30,6 +30,7 @@
 // Compute-only TU: Value substrate + Error, no engine. The melSpectrogram
 // / audioDelta builtins (CallContext wrappers) live in
 // spectral/melspec_delta_reg.cpp.
+#include <numkit/value/argcheck.hpp>
 #include <numkit/value/value.hpp>
 #include <numkit/value/error.hpp>
 #include <numkit/value/scratch.hpp>

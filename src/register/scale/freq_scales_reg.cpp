@@ -49,7 +49,7 @@ bool isStandard532_2(const Value &v)
         // Case-insensitive compare.
         std::string lower = s;
         std::transform(lower.begin(), lower.end(), lower.begin(),
-                        [](unsigned char c) { return std::tolower(c); });
+                        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
         return (lower == "iso 532-2");
     }
     return false;
