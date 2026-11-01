@@ -1,6 +1,6 @@
 /// @file cepstral.hpp
 /// @ingroup group_audio
-// toolboxes/audio/include/nk/audio/spectral/cepstral.hpp
+// toolboxes/audio/include/numkit/audio/spectral/cepstral.hpp
 //
 // Audio Cycle D: cepstral coefficient extractors.
 

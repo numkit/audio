@@ -1,6 +1,6 @@
 /// @file audio_io.hpp
 /// @ingroup group_audio
-// toolboxes/audio/include/nk/audio/io/audio_io.hpp
+// toolboxes/audio/include/numkit/audio/io/audio_io.hpp
 //
 // Unified Audio I/O facade for NK: audioread, audiowrite, audioinfo.
 // Zero-dependency pure C++17 implementation supporting WAV, FLAC, MP3, AIFF, AU, MIDI.

@@ -1,4 +1,4 @@
-// toolboxes/audio/include/nk/audio/spectral/shape_descriptors.hpp
+// toolboxes/audio/include/numkit/audio/spectral/shape_descriptors.hpp
 //
 // Audio spectral shape descriptors.
 

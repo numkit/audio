@@ -1,6 +1,6 @@
 /// @file melspec_delta.hpp
 /// @ingroup group_audio
-// toolboxes/audio/include/nk/audio/spectral/melspec_delta.hpp
+// toolboxes/audio/include/numkit/audio/spectral/melspec_delta.hpp
 //
 // Audio Cycle C: melSpectrogram + audioDelta.
 
