@@ -4,7 +4,7 @@
 // until fixed; remove `DISABLED_` to turn into a live regression guard.
 // MATLAB R2025b reference values.
 
-#include <numkit/bundle/standard_engine.hpp>
+#include <numkit/core/standard_engine.hpp>
 #include <numkit/core/engine.hpp>
 #include <gtest/gtest.h>
 

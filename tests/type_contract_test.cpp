@@ -7,7 +7,7 @@
 // the probed default STFT window rule (64/32 pinned below the 128
 // threshold). Reference: MATLAB R2025b, build/probe42/45/48..53.
 
-#include <numkit/bundle/standard_engine.hpp>
+#include <numkit/core/standard_engine.hpp>
 #include <numkit/core/engine.hpp>
 #include <gtest/gtest.h>
 

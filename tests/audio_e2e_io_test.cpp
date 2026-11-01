@@ -1,6 +1,6 @@
 // toolboxes/audio/tests/audio_e2e_io_test.cpp
 #include <gtest/gtest.h>
-#include <numkit/bundle/standard_library.hpp>
+#include <numkit/core/standard_library.hpp>
 #include <numkit/core/standard_engine.hpp>
 #include <numkit/sys/vfs.hpp>
 #include <filesystem>
