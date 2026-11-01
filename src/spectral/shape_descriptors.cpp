@@ -685,11 +685,17 @@ Value spectralSkewness(const Value &x, const Value &f, std::pmr::memory_resource
 // the (X, F) form also accepts complex X (|·| inside) while a complex F
 // rejects; logical / integer / char reject on both forms; the result
 // keeps X's class.
-Value spectralFluxFull(const Value &x, const Value &f, double p,
-                       const Value *initialCondition, Value *finalCondition,
-                       bool magnitudeSpectrum, const StftOptions &stft,
-                       std::pmr::memory_resource *mr)
+namespace {
+
+void spectralFlux_argcheck(const Value &x, const Value &f, double p,
+                           const Value *initialCondition, Value *finalCondition)
 {
+    (void)x;
+    if (p != 1.0 && p != 2.0)
+        throw Error("spectralFlux: NormType must be 1 or 2 "
+                    "(got " + std::to_string(p) + ").",
+                    0, 0, "spectralFlux", "",
+                    "numkit:spectralFlux:normType");
     const bool timeForm = f.numel() == 1;
     // f gates first for BOTH forms (the reference's arguments block):
     // nonempty, real, nonnegative, finite.
@@ -726,6 +732,17 @@ Value spectralFluxFull(const Value &x, const Value &f, double p,
                         0, 0, "spectralFlux", "",
                         "numkit:spectralFlux:nargoutchk");
     }
+}
+
+} // anon
+
+Value spectralFluxFull(const Value &x, const Value &f, double p,
+                       const Value *initialCondition, Value *finalCondition,
+                       bool magnitudeSpectrum, const StftOptions &stft,
+                       std::pmr::memory_resource *mr)
+{
+    spectralFlux_argcheck(x, f, p, initialCondition, finalCondition);
+    const bool timeForm = f.numel() == 1;
 
     auto d = prepareInput(mr, x, f, magnitudeSpectrum, "spectralFlux", stft);
     const size_t M = d.X.dims().rows();

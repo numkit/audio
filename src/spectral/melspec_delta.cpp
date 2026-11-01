@@ -118,12 +118,41 @@ MelFB designMelFilterBank(std::pmr::memory_resource *mr,
     return {FB, F};
 }
 
+void melSpectrogram_argcheck(const Value &x, double fs, int numBands)
+{
+    (void)x;
+    if (!(fs > 0.0) || !std::isfinite(fs))
+        throw Error("melSpectrogram: fs must be a finite positive scalar",
+                    0, 0, "melSpectrogram", "", "numkit:melSpectrogram:expectedPositive");
+    if (numBands < 1)
+        throw Error("melSpectrogram: NumBands must be a positive integer",
+                    0, 0, "melSpectrogram", "", "numkit:melSpectrogram:expectedPositiveInteger");
+}
+
+void audioDelta_argcheck(const Value &x, int windowLength)
+{
+    if (windowLength < 3 || (windowLength % 2) == 0)
+        throw Error("audioDelta: windowLength must be an odd integer "
+                    "greater than 1 (got " + std::to_string(windowLength) + ").",
+                    0, 0, "audioDelta", "", "numkit:audioDelta:BadWin");
+
+    if (x.type() == ValueType::COMPLEX)
+        throw Error("audioDelta: input 1 (x) must be real.",
+                    0, 0, "audioDelta", "", "numkit:audioDelta:expectedReal");
+    if (x.type() != ValueType::DOUBLE && x.type() != ValueType::SINGLE
+        && x.type() != ValueType::EMPTY)
+        throw Error("audioDelta: input 1 (x) must be double or single "
+                    "(got a " + std::string(mtypeName(x.type())) + " array).",
+                    0, 0, "audioDelta", "", "numkit:audioDelta:invalidType");
+}
+
 } // anon
 
 std::tuple<Value, Value, Value>
 melSpectrogram(const Value &x, double fs, int numBands,
                std::pmr::memory_resource *mr)
 {
+    melSpectrogram_argcheck(x, fs, numBands);
     const size_t N = x.numel();
     const size_t winLen  = static_cast<size_t>(std::round(fs * 0.03));
     const size_t overlap = static_cast<size_t>(std::round(fs * 0.02));
@@ -194,19 +223,7 @@ Value audioDeltaFull(const Value &x, int windowLength,
                      const Value *initialCondition, Value *finalCondition,
                      std::pmr::memory_resource *mr)
 {
-    if (windowLength < 3 || (windowLength % 2) == 0)
-        throw Error("audioDelta: windowLength must be an odd integer "
-                    "greater than 1 (got " + std::to_string(windowLength) + ").",
-                    0, 0, "audioDelta", "", "numkit:audioDelta:BadWin");
-
-    if (x.type() == ValueType::COMPLEX)
-        throw Error("audioDelta: input 1 (x) must be real.",
-                    0, 0, "audioDelta", "", "numkit:audioDelta:expectedReal");
-    if (x.type() != ValueType::DOUBLE && x.type() != ValueType::SINGLE
-        && x.type() != ValueType::EMPTY)
-        throw Error("audioDelta: input 1 (x) must be double or single "
-                    "(got a " + std::string(mtypeName(x.type())) + " array).",
-                    0, 0, "audioDelta", "", "numkit:audioDelta:invalidType");
+    audioDelta_argcheck(x, windowLength);
 
     const int M = windowLength / 2;
     // Coefficients [M, M-1, ..., 1, 0, -1, ..., -M] / sum((1:M)^2)

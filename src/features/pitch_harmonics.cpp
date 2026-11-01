@@ -101,6 +101,25 @@ size_t nextPow2(size_t x)
     return p;
 }
 
+void pitch_argcheck(const Value &x, double fs, double minF, double maxF)
+{
+    (void)x;
+    if (!(fs > 0.0) || !std::isfinite(fs))
+        throw Error("pitch: fs must be a finite positive scalar",
+                    0, 0, "pitch", "", "numkit:pitch:expectedPositive");
+    if (!(minF > 0.0 && maxF > minF && std::isfinite(minF) && std::isfinite(maxF)))
+        throw Error("pitch: Range must satisfy 0 < Range(1) < Range(2)",
+                    0, 0, "pitch", "", "numkit:pitch:BadRange");
+}
+
+void harmonicRatio_argcheck(const Value &x, double fs)
+{
+    (void)x;
+    if (!(fs > 0.0) || !std::isfinite(fs))
+        throw Error("harmonicRatio: fs must be a finite positive scalar",
+                    0, 0, "harmonicRatio", "", "numkit:harmonicRatio:expectedPositive");
+}
+
 } // anon
 
 // ── pitch CEP method ──────────────────────────────────────────────────
@@ -119,6 +138,7 @@ size_t nextPow2(size_t x)
 Value pitchCEP(const Value &x, double fs, double minF, double maxF,
                std::pmr::memory_resource *mr)
 {
+    pitch_argcheck(x, fs, minF, maxF);
     // Framing — MATLAB pitch defaults: 52 ms window, 42 ms overlap.
     const std::size_t N = x.numel();
     const FrameSpec fr = frameSpec(N, fs, 0.052, 0.042);
@@ -236,6 +256,7 @@ Value pitchCEP(const Value &x, double fs, double minF, double maxF,
 Value pitchPEF(const Value &x, double fs, double minF, double maxF,
                std::pmr::memory_resource *mr)
 {
+    pitch_argcheck(x, fs, minF, maxF);
     // PEF algorithm constants (paper §2.1, §3, §2).
     constexpr double kGamma = 1.5;            // comb tooth-width parameter γ
     constexpr int    kK     = 10;             // number of comb teeth K
@@ -416,6 +437,7 @@ Value pitchPEF(const Value &x, double fs, double minF, double maxF,
 Value pitchLHS(const Value &x, double fs, double minF, double maxF,
                std::pmr::memory_resource *mr)
 {
+    pitch_argcheck(x, fs, minF, maxF);
     // --- Method constants (spec §3) -----------------------------------------
     constexpr int    kH         = 5;     // harmonics summed by LHS
     constexpr double kWinSec    = 0.052; // analysis window length (s)
@@ -570,6 +592,7 @@ Value pitchLHS(const Value &x, double fs, double minF, double maxF,
 Value pitchSRH(const Value &x, double fs, double minF, double maxF,
                std::pmr::memory_resource *mr)
 {
+    pitch_argcheck(x, fs, minF, maxF);
     // ── Method parameters (paper §3.2) ──────────────────────────────
     constexpr int    kLpcOrder = 12;   // P  — LPC order
     constexpr int    kNharm    = 5;    // Nharm — harmonics summed
@@ -745,6 +768,7 @@ Value pitchSRH(const Value &x, double fs, double minF, double maxF,
 // ── pitch ─────────────────────────────────────────────────────────────
 Value pitch(const Value &x, double fs, double minF, double maxF, std::pmr::memory_resource *mr)
 {
+    pitch_argcheck(x, fs, minF, maxF);
     const size_t N = x.numel();
     const FrameSpec sp = frameSpec(N, fs, 0.052, 0.042);
     Value out = Value::matrix(sp.numFrames, sp.numFrames == 0 ? 0 : 1,
@@ -804,6 +828,7 @@ Value pitch(const Value &x, double fs, double minF, double maxF, std::pmr::memor
 //   4. Clip to [0, 1].
 Value harmonicRatio(const Value &x, double fs, std::pmr::memory_resource *mr)
 {
+    harmonicRatio_argcheck(x, fs);
     const size_t N = x.numel();
     const FrameSpec sp = frameSpec(N, fs, 0.03, 0.02);
     Value out = Value::matrix(sp.numFrames, sp.numFrames == 0 ? 0 : 1,

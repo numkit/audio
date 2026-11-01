@@ -241,16 +241,7 @@ void computeGammatoneFreqRespOneSided(double fs, const double *Fc, size_t numBan
     }
 }
 
-} // anon
-
-// ── cepstralCoefficients ──────────────────────────────────────────────
-// S: spectrogram, one spectrum per column (2-D: L×M → M×NumCoeffs) or a
-// higher-dimensional stack (N-D: the DCT runs along dim 1 per trailing
-// index, output (d2, NumCoeffs, d3, ...)). Probed R2025b contract:
-// double/single real, nonnegative unless Rectification='none'; zero bins
-// clamp to realmin before log10 (not -Inf); NumCoeffs defaults to 13.
-Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
-                           std::pmr::memory_resource *mr)
+void cepstralCoefficients_argcheck(const Value &S, int numCoeffs, CepstralRect rect)
 {
     if (S.type() == ValueType::COMPLEX)
         throw Error("cepstralCoefficients: input 1 (S) must be real.",
@@ -268,12 +259,6 @@ Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
                     "greater than 1 (got " + std::to_string(numCoeffs) + ").",
                     0, 0, "cepstralCoefficients", "",
                     "numkit:cepstralCoefficients:BadN");
-
-    const bool wantSingle = S.type() == ValueType::SINGLE;
-    const Dims &d = S.dims();
-    const size_t L = d.dim(0);
-    const size_t K = static_cast<size_t>(numCoeffs);
-
     if (rect != CepstralRect::None) {
         for (std::size_t i = 0; i < S.numel(); ++i)
             if (!(S.elemAsDouble(i) >= 0.0))
@@ -285,6 +270,49 @@ Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
                             0, 0, "cepstralCoefficients", "",
                             "numkit:cepstralCoefficients:expectedNonnegative");
     }
+}
+
+void mfcc_argcheck(const Value &x, double fs, int numCoeffs)
+{
+    (void)x;
+    if (!(fs > 0.0) || !std::isfinite(fs))
+        throw Error("mfcc: fs must be a finite positive scalar",
+                    0, 0, "mfcc", "", "numkit:mfcc:expectedPositive");
+    if (numCoeffs <= 1)
+        throw Error("mfcc: NumCoeffs must be an integer greater than 1 (got "
+                    + std::to_string(numCoeffs) + ").",
+                    0, 0, "mfcc", "", "numkit:mfcc:BadN");
+}
+
+void gtcc_argcheck(const Value &x, double fs, int numCoeffs)
+{
+    (void)x;
+    if (!(fs > 0.0) || !std::isfinite(fs))
+        throw Error("gtcc: fs must be a finite positive scalar",
+                    0, 0, "gtcc", "", "numkit:gtcc:expectedPositive");
+    if (numCoeffs <= 1)
+        throw Error("gtcc: NumCoeffs must be an integer greater than 1 (got "
+                    + std::to_string(numCoeffs) + ").",
+                    0, 0, "gtcc", "", "numkit:gtcc:BadN");
+}
+
+} // anon
+
+// ── cepstralCoefficients ──────────────────────────────────────────────
+// S: spectrogram, one spectrum per column (2-D: L×M → M×NumCoeffs) or a
+// higher-dimensional stack (N-D: the DCT runs along dim 1 per trailing
+// index, output (d2, NumCoeffs, d3, ...)). Probed R2025b contract:
+// double/single real, nonnegative unless Rectification='none'; zero bins
+// clamp to realmin before log10 (not -Inf); NumCoeffs defaults to 13.
+Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
+                           std::pmr::memory_resource *mr)
+{
+    cepstralCoefficients_argcheck(S, numCoeffs, rect);
+
+    const bool wantSingle = S.type() == ValueType::SINGLE;
+    const Dims &d = S.dims();
+    const size_t L = d.dim(0);
+    const size_t K = static_cast<size_t>(numCoeffs);
 
     // Output dims: (d2, K, d3, ...).
     std::vector<size_t> od;
@@ -391,6 +419,7 @@ Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
 std::tuple<Value, Value, Value>
 mfcc(const Value &x, double fs, int numCoeffs, std::pmr::memory_resource *mr)
 {
+    mfcc_argcheck(x, fs, numCoeffs);
     const size_t N = x.numel();
     const size_t winLen  = static_cast<size_t>(std::round(fs * 0.03));
     const size_t overlap = static_cast<size_t>(std::round(fs * 0.02));
@@ -500,6 +529,7 @@ mfcc(const Value &x, double fs, int numCoeffs, std::pmr::memory_resource *mr)
 std::tuple<Value, Value, Value>
 gtcc(const Value &x, double fs, int numCoeffs, std::pmr::memory_resource *mr)
 {
+    gtcc_argcheck(x, fs, numCoeffs);
     const size_t N = x.numel();
     const size_t winLen  = static_cast<size_t>(std::round(fs * 0.03));
     const size_t overlap = static_cast<size_t>(std::round(fs * 0.02));

@@ -134,13 +134,7 @@ void spectralFlux_reg(Span<const Value> args, size_t nargout,
                     throw Error("spectralFlux: NormType must be real.",
                                 0, 0, "spectralFlux", "",
                                 "numkit:spectralFlux:mustBeReal");
-                const double pv = v.elemAsDouble(0);
-                if (pv != 1.0 && pv != 2.0)
-                    throw Error("spectralFlux: NormType must be 1 or 2 "
-                                "(got " + std::to_string(pv) + ").",
-                                0, 0, "spectralFlux", "",
-                                "numkit:spectralFlux:normType");
-                p = pv;
+                p = v.elemAsDouble(0);
                 i += 2;
             } else if (name == "spectrumtype" || name == "spect") {
                 if (i + 1 >= args.size())

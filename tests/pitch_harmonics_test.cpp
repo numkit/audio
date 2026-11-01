@@ -2,6 +2,9 @@
 // Regression guard for Audio Cycle E (FINAL): pitch + harmonicRatio.
 
 #include <numkit/core/standard_engine.hpp>
+#include <numkit/audio/features/pitch_harmonics.hpp>
+#include <numkit/audio/spectral/shape_descriptors.hpp>
+#include <numkit/value/error.hpp>
 #include <gtest/gtest.h>
 
 using namespace numkit;
@@ -203,4 +206,17 @@ TEST_F(PitchHarmonicsTest, PitchAllMethodsHarmonic150Hz)
     EXPECT_NEAR(evalScalar("mean(pitch(x, fs, 'Method', 'LHS'))"), 150.0, 10.0);
     EXPECT_NEAR(evalScalar("mean(pitch(x, fs, 'Method', 'PEF'))"), 150.0, 10.0);
     EXPECT_NEAR(evalScalar("mean(pitch(x, fs, 'Method', 'SRH'))"), 150.0, 10.0);
+}
+
+TEST_F(PitchHarmonicsTest, DirectCppArgcheckRejectsBadInputs)
+{
+    Value x = eval("sin(2*pi*220*t)");
+    EXPECT_THROW(audio::pitch(x, 16000.0, 400.0, 50.0), Error);
+    EXPECT_THROW(audio::pitchCEP(x, 16000.0, 400.0, 50.0), Error);
+    EXPECT_THROW(audio::pitchPEF(x, 16000.0, 400.0, 50.0), Error);
+    EXPECT_THROW(audio::pitchLHS(x, 16000.0, 400.0, 50.0), Error);
+    EXPECT_THROW(audio::pitchSRH(x, 16000.0, 400.0, 50.0), Error);
+    EXPECT_THROW(audio::pitch(x, -16000.0, 50.0, 400.0), Error);
+    EXPECT_THROW(audio::harmonicRatio(x, -16000.0), Error);
+    EXPECT_THROW(audio::spectralFlux(x, Value::scalar(16000.0), 3.0), Error);
 }

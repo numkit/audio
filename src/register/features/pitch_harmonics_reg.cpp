@@ -55,13 +55,8 @@ void pitch_reg(Span<const Value> args, size_t /*nargout*/,
             if (r.numel() != 2)
                 throw Error("pitch: Range must be a 2-element vector [lo hi]",
                             0, 0, "pitch", "", "numkit:pitch:BadRange");
-            const double lo = r.elemAsDouble(0);
-            const double hi = r.elemAsDouble(1);
-            if (!(lo > 0.0 && hi > lo))
-                throw Error("pitch: Range must satisfy 0 < Range(1) < Range(2)",
-                            0, 0, "pitch", "", "numkit:pitch:BadRange");
-            minF = lo;
-            maxF = hi;
+            minF = r.elemAsDouble(0);
+            maxF = r.elemAsDouble(1);
         }
     }
     const double fs = args[1].toScalar();

@@ -41,12 +41,6 @@ void cepstralCoefficients_reg(Span<const Value> args, size_t /*nargout*/,
                 argcheck::expectedReal(args[i + 1], i + 2, "NumCoeffs",
                                        "cepstralCoefficients"),
                 i + 2, "NumCoeffs", "cepstralCoefficients");
-            if (nc <= 1)
-                throw Error("cepstralCoefficients: NumCoeffs must be an "
-                            "integer greater than 1 (got "
-                            + std::to_string(nc) + ").",
-                            0, 0, "cepstralCoefficients", "",
-                            "numkit:cepstralCoefficients:BadN");
         } else if (name == "rectification" || name == "rect") {
             std::string val = args[i + 1].toString();
             for (auto &c : val)
