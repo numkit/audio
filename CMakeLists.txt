@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(numkit_audio CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(NUMKIT_WITH_SIMD "Enable Highway SIMD acceleration" ON)
@@ -137,6 +137,57 @@ if(NOT TARGET numkit_signal_core)
     endif()
 endif()
 
+# Dependency: keelcpp/audio-formats (strictly PRIVATE to numkit_audio_core)
+foreach(_keel_pair
+    "KEEL:keel"
+    "KEEL_AUDIO_FORMATS:audio-formats"
+)
+    string(REPLACE ":" ";" _keel_parts "${_keel_pair}")
+    list(GET _keel_parts 0 _keel_var)
+    list(GET _keel_parts 1 _keel_dir)
+    if(NOT DEFINED FETCHCONTENT_SOURCE_DIR_${_keel_var})
+        if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../../keelcpp/${_keel_dir}/CMakeLists.txt")
+            set(FETCHCONTENT_SOURCE_DIR_${_keel_var}
+                "${CMAKE_CURRENT_SOURCE_DIR}/../../../keelcpp/${_keel_dir}"
+                CACHE PATH "")
+        elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../keelcpp/${_keel_dir}/CMakeLists.txt")
+            set(FETCHCONTENT_SOURCE_DIR_${_keel_var}
+                "${CMAKE_CURRENT_SOURCE_DIR}/../../keelcpp/${_keel_dir}"
+                CACHE PATH "")
+        endif()
+    endif()
+endforeach()
+
+set(KEEL_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(KEEL_AUDIO_FORMATS_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+
+if(NOT TARGET keel::keel)
+    find_package(keel QUIET CONFIG)
+endif()
+if(NOT TARGET keel::keel)
+    FetchContent_Declare(
+        keel
+        GIT_REPOSITORY https://github.com/keelcpp/keel.git
+        GIT_TAG        042c102203a5d07389a1e974b0a9c342503519c6
+    )
+    FetchContent_MakeAvailable(keel)
+endif()
+
+if(NOT TARGET keel::audio_formats)
+    find_package(keel_audio_formats QUIET CONFIG)
+    if(TARGET keel::keel_audio_formats AND NOT TARGET keel::audio_formats)
+        add_library(keel::audio_formats ALIAS keel::keel_audio_formats)
+    endif()
+endif()
+if(NOT TARGET keel::audio_formats)
+    FetchContent_Declare(
+        keel_audio_formats
+        GIT_REPOSITORY https://github.com/keelcpp/audio-formats.git
+        GIT_TAG        4287a11aa33f2898061a1f546ce1b277d9891c7a
+    )
+    FetchContent_MakeAvailable(keel_audio_formats)
+endif()
+
 file(GLOB_RECURSE AUDIO_COMPUTE_SOURCES
     "src/features/*.cpp"
     "src/io/*.cpp"
@@ -168,7 +219,10 @@ target_include_directories(numkit_audio_core
         ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_link_libraries(numkit_audio_core PUBLIC numkit_value numkit_sys numkit_ops numkit_signal_core)
+target_link_libraries(numkit_audio_core
+    PUBLIC numkit_value numkit_sys numkit_ops numkit_signal_core
+    PRIVATE keel::audio_formats
+)
 
 if(NUMKIT_WITH_SIMD)
     target_compile_definitions(numkit_audio_core PUBLIC NUMKIT_WITH_SIMD=1)
