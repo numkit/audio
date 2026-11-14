@@ -137,10 +137,10 @@ if(NOT TARGET numkit_signal_core)
     endif()
 endif()
 
-# Dependency: keelcpp/audio-formats (strictly PRIVATE to numkit_audio_core)
+# Dependency: keelcpp/audio (strictly PRIVATE to numkit_audio_core)
 foreach(_keel_pair
     "KEEL:keel"
-    "KEEL_AUDIO_FORMATS:audio-formats"
+    "KEEL_AUDIO:audio"
 )
     string(REPLACE ":" ";" _keel_parts "${_keel_pair}")
     list(GET _keel_parts 0 _keel_var)
@@ -159,7 +159,7 @@ foreach(_keel_pair
 endforeach()
 
 set(KEEL_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(KEEL_AUDIO_FORMATS_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(KEEL_AUDIO_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 
 if(NOT TARGET keel::keel)
     find_package(keel QUIET CONFIG)
@@ -173,19 +173,19 @@ if(NOT TARGET keel::keel)
     FetchContent_MakeAvailable(keel)
 endif()
 
-if(NOT TARGET keel::audio_formats)
-    find_package(keel_audio_formats QUIET CONFIG)
-    if(TARGET keel::keel_audio_formats AND NOT TARGET keel::audio_formats)
-        add_library(keel::audio_formats ALIAS keel::keel_audio_formats)
+if(NOT TARGET keel::audio)
+    find_package(keel_audio QUIET CONFIG)
+    if(TARGET keel::keel_audio AND NOT TARGET keel::audio)
+        add_library(keel::audio ALIAS keel::keel_audio)
     endif()
 endif()
-if(NOT TARGET keel::audio_formats)
+if(NOT TARGET keel::audio)
     FetchContent_Declare(
-        keel_audio_formats
-        GIT_REPOSITORY https://github.com/keelcpp/audio-formats.git
-        GIT_TAG        4287a11aa33f2898061a1f546ce1b277d9891c7a
+        keel_audio
+        GIT_REPOSITORY https://github.com/keelcpp/audio.git
+        GIT_TAG        b3319ae55485082c38d24c94f0d9c4dd136936a9
     )
-    FetchContent_MakeAvailable(keel_audio_formats)
+    FetchContent_MakeAvailable(keel_audio)
 endif()
 
 file(GLOB_RECURSE AUDIO_COMPUTE_SOURCES
@@ -221,7 +221,7 @@ target_include_directories(numkit_audio_core
 
 target_link_libraries(numkit_audio_core
     PUBLIC numkit_value numkit_sys numkit_ops numkit_signal_core
-    PRIVATE keel::audio_formats
+    PRIVATE keel::audio
 )
 
 if(NUMKIT_WITH_SIMD)

@@ -2,7 +2,7 @@
 //
 // Thin PRIVATE adapter bridging NumKit's Audio & MIDI I/O APIs
 // (audioread, audiowrite, audioinfo, midiread, midiwrite, midiinfo)
-// to keel::audio_formats.
+// to keel::audio.
 
 #include <numkit/audio/io/audio_io.hpp>
 
