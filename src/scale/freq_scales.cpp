@@ -15,6 +15,9 @@
 //
 // PMR HARD RULE: every fn takes std::pmr::memory_resource *mr.
 
+#include <keel/core.h>
+#include <keel/memory.h>
+#include <keel/math.h>
 #include <numkit/audio/scale/freq_scales.hpp>
 #include <numkit/builtin/polyfun.hpp>   // numkit::builtin::pchip (engine-free)
 
@@ -34,9 +37,9 @@ namespace {
 
 // Apply elementwise scalar fn f to input x; output same shape.
 template <typename Fn>
-Value elementwise(std::pmr::memory_resource *mr, const Value &x, Fn f)
+Value elementwise(keel::Allocator *mr, const Value &x, Fn f)
 {
-    const size_t N = x.numel();
+    const keel::usize N = x.numel();
     Value out;
     if (x.dims().is3D())
         out = Value::matrix3d(x.dims().rows(), x.dims().cols(),
@@ -46,7 +49,7 @@ Value elementwise(std::pmr::memory_resource *mr, const Value &x, Fn f)
                             ValueType::DOUBLE, mr);
     if (N == 0) return out;
     double *od = out.doubleDataMut();
-    for (size_t i = 0; i < N; ++i) od[i] = f(x.elemAsDouble(i));
+    for (keel::usize i = 0; i < N; ++i) od[i] = f(x.elemAsDouble(i));
     return out;
 }
 
@@ -65,7 +68,7 @@ void freq_scales_argcheck(const Value &x, const char *fn)
 } // namespace
 
 // ── Mel (O'Shaughnessy default) ───────────────────────────────────────
-Value hz2mel(const Value &hz, std::pmr::memory_resource *mr)
+Value hz2mel(const Value &hz, keel::Allocator *mr)
 {
     freq_scales_argcheck(hz, "hz2mel");
     return elementwise(mr, hz, [](double f) {
@@ -73,7 +76,7 @@ Value hz2mel(const Value &hz, std::pmr::memory_resource *mr)
     });
 }
 
-Value mel2hz(const Value &mel, std::pmr::memory_resource *mr)
+Value mel2hz(const Value &mel, keel::Allocator *mr)
 {
     freq_scales_argcheck(mel, "mel2hz");
     return elementwise(mr, mel, [](double m) {
@@ -82,7 +85,7 @@ Value mel2hz(const Value &mel, std::pmr::memory_resource *mr)
 }
 
 // ── Bark (Traunmüller with corrections) ───────────────────────────────
-Value hz2bark(const Value &hz, std::pmr::memory_resource *mr)
+Value hz2bark(const Value &hz, keel::Allocator *mr)
 {
     freq_scales_argcheck(hz, "hz2bark");
     return elementwise(mr, hz, [](double f) {
@@ -93,7 +96,7 @@ Value hz2bark(const Value &hz, std::pmr::memory_resource *mr)
     });
 }
 
-Value bark2hz(const Value &bark, std::pmr::memory_resource *mr)
+Value bark2hz(const Value &bark, keel::Allocator *mr)
 {
     freq_scales_argcheck(bark, "bark2hz");
     return elementwise(mr, bark, [](double b) {
@@ -107,7 +110,7 @@ Value bark2hz(const Value &bark, std::pmr::memory_resource *mr)
 }
 
 // ── ERB (Glasberg-Moore) ──────────────────────────────────────────────
-Value hz2erb(const Value &hz, std::pmr::memory_resource *mr)
+Value hz2erb(const Value &hz, keel::Allocator *mr)
 {
     freq_scales_argcheck(hz, "hz2erb");
     const double scale = erbScale();
@@ -116,7 +119,7 @@ Value hz2erb(const Value &hz, std::pmr::memory_resource *mr)
     });
 }
 
-Value erb2hz(const Value &erb, std::pmr::memory_resource *mr)
+Value erb2hz(const Value &erb, keel::Allocator *mr)
 {
     freq_scales_argcheck(erb, "erb2hz");
     const double scale = erbScale();
@@ -146,7 +149,7 @@ namespace {
 
 // ISO 532-2:2017 Table 5: phon (row 0) → sone (row 1). 28 entries.
 // These are the published ISO 532-2:2017 Table 5 values.
-constexpr size_t kTab5N = 28;
+constexpr keel::usize kTab5N = 28;
 constexpr double kTab5Phon[kTab5N] = {
     0.000, 2.200, 4.000, 5.000, 7.500, 10.00, 15.00, 20.00,
     25.0,  30.0,  35.0,  40.0,  45.0,  50.0,  55.0,  60.0,
@@ -161,13 +164,13 @@ constexpr double kTab5Sone[kTab5N] = {
 };
 
 // Make Value vectors backed by tab5 (column vectors for interp1 input).
-Value tab5PhonVec(std::pmr::memory_resource *mr)
+Value tab5PhonVec(keel::Allocator *mr)
 {
     Value v = Value::matrix(kTab5N, 1, ValueType::DOUBLE, mr);
     std::copy(kTab5Phon, kTab5Phon + kTab5N, v.doubleDataMut());
     return v;
 }
-Value tab5SoneVec(std::pmr::memory_resource *mr)
+Value tab5SoneVec(keel::Allocator *mr)
 {
     Value v = Value::matrix(kTab5N, 1, ValueType::DOUBLE, mr);
     std::copy(kTab5Sone, kTab5Sone + kTab5N, v.doubleDataMut());
@@ -175,7 +178,7 @@ Value tab5SoneVec(std::pmr::memory_resource *mr)
 }
 
 // Linear extrapolation from last two points of (xs, ys) at query x.
-inline double linearExtrap(const double *xs, const double *ys, size_t N, double x)
+inline double linearExtrap(const double *xs, const double *ys, keel::usize N, double x)
 {
     const double x0 = xs[N - 2], y0 = ys[N - 2];
     const double x1 = xs[N - 1], y1 = ys[N - 1];
@@ -186,7 +189,7 @@ inline double linearExtrap(const double *xs, const double *ys, size_t N, double 
 } // anon
 
 Value phon2sone(const Value &phon, bool standardIs532_2,
-                std::pmr::memory_resource *mr)
+                keel::Allocator *mr)
 {
     freq_scales_argcheck(phon, "phon2sone");
     if (!standardIs532_2) {
@@ -234,7 +237,7 @@ Value phon2sone(const Value &phon, bool standardIs532_2,
         double hi = guess * 1.5;
         double fLo = sone2phonInline(lo) - pCapped;
         double fHi = sone2phonInline(hi) - pCapped;
-        size_t expand = 0;
+        keel::usize expand = 0;
         while (fLo * fHi > 0.0 && expand < 30) {
             // Walk the bracket outward (geometric).
             lo *= 0.5;
@@ -245,9 +248,9 @@ Value phon2sone(const Value &phon, bool standardIs532_2,
         }
         if (fLo * fHi > 0.0) return guess;  // give up, fall back to PCHIP guess
         // Bisection to ~1e-12 relative or 80 iters max.
-        for (size_t it = 0; it < 80; ++it) {
+        for (keel::usize it = 0; it < 80; ++it) {
             const double mid = 0.5 * (lo + hi);
-            if (hi - lo < 1e-12 * std::max(1.0, std::abs(mid))) return mid;
+            if (hi - lo < 1e-12 * std::max(1.0, keel::abs(mid))) return mid;
             const double fMid = sone2phonInline(mid) - pCapped;
             if (fMid == 0.0) return mid;
             if (fLo * fMid < 0.0) { hi = mid; fHi = fMid; }
@@ -258,7 +261,7 @@ Value phon2sone(const Value &phon, bool standardIs532_2,
 }
 
 Value sone2phon(const Value &sone, bool standardIs532_2,
-                std::pmr::memory_resource *mr)
+                keel::Allocator *mr)
 {
     freq_scales_argcheck(sone, "sone2phon");
     if (!standardIs532_2) {

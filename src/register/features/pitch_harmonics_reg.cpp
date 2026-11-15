@@ -7,6 +7,8 @@
 //
 // Phase 2b compute/register split — see project_layering_refactor memory.
 
+#include <keel/core.h>
+#include <keel/ref.h>
 #include <numkit/audio/features/pitch_harmonics.hpp>
 
 #include <numkit/sys/plugin.hpp>   // CallContext, ctx.engine->resource()
@@ -32,14 +34,14 @@ namespace detail {
 //   pitch(x, fs, 'Method', 'CEP')
 //   pitch(x, fs, 'Range', [80 250])             — restrict to speech
 //   pitch(x, fs, 'Method', 'PEF', 'Range', [...])
-void pitch_reg(Span<const Value> args, size_t /*nargout*/,
-               Span<Value> outs, CallContext &ctx)
+void pitch_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/,
+               keel::MutArrayRef<Value> outs, CallContext &ctx)
 {
     argcheck::checkNargin(args.size(), 2, "pitch");
     std::string method = "NCF";
     double minF = 50.0, maxF = 400.0;
     // Parse Name-Value pairs starting at args[2].
-    for (size_t i = 2; i + 1 < args.size(); i += 2) {
+    for (keel::usize i = 2; i + 1 < args.size(); i += 2) {
         if (args[i].type() != ValueType::CHAR && args[i].type() != ValueType::STRING)
             continue;
         std::string name = args[i].toString();
@@ -61,22 +63,22 @@ void pitch_reg(Span<const Value> args, size_t /*nargout*/,
     }
     const double fs = args[1].toScalar();
     if (method == "CEP")
-        outs[0] = pitchCEP(args[0], fs, minF, maxF, ctx.engine->resource());
+        outs[0] = pitchCEP(args[0], fs, minF, maxF, ctx.engine->allocator());
     else if (method == "PEF")
-        outs[0] = pitchPEF(args[0], fs, minF, maxF, ctx.engine->resource());
+        outs[0] = pitchPEF(args[0], fs, minF, maxF, ctx.engine->allocator());
     else if (method == "LHS")
-        outs[0] = pitchLHS(args[0], fs, minF, maxF, ctx.engine->resource());
+        outs[0] = pitchLHS(args[0], fs, minF, maxF, ctx.engine->allocator());
     else if (method == "SRH")
-        outs[0] = pitchSRH(args[0], fs, minF, maxF, ctx.engine->resource());
+        outs[0] = pitchSRH(args[0], fs, minF, maxF, ctx.engine->allocator());
     else
-        outs[0] = pitch(args[0], fs, minF, maxF, ctx.engine->resource());
+        outs[0] = pitch(args[0], fs, minF, maxF, ctx.engine->allocator());
 }
 
-void harmonicRatio_reg(Span<const Value> args, size_t /*nargout*/,
-                       Span<Value> outs, CallContext &ctx)
+void harmonicRatio_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/,
+                       keel::MutArrayRef<Value> outs, CallContext &ctx)
 {
     argcheck::checkNargin(args.size(), 2, 2, "harmonicRatio");
-    outs[0] = harmonicRatio(args[0], args[1].toScalar(), ctx.engine->resource());
+    outs[0] = harmonicRatio(args[0], args[1].toScalar(), ctx.engine->allocator());
 }
 
 } // namespace detail

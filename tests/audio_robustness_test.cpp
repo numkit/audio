@@ -1,4 +1,5 @@
 // toolboxes/audio/tests/audio_robustness_test.cpp
+#include <keel/core.h>
 #include <gtest/gtest.h>
 #include "../src/io/wav_codec.hpp"
 #include "../src/io/flac_codec.hpp"
@@ -13,7 +14,7 @@ using namespace numkit;
 using namespace numkit::audio;
 
 TEST(AudioRobustnessTest, EmptyAndTinyBuffersThrowCleanly) {
-    const uint8_t tiny[] = "RIF";
+    const keel::u8 tiny[] = "RIF";
     EXPECT_THROW(readWav(nullptr, 0), Error);
     EXPECT_THROW(readWav(tiny, 3), Error);
     EXPECT_THROW(peekWav(tiny, 3), Error);
@@ -45,19 +46,19 @@ TEST(AudioRobustnessTest, TruncatedWavDataThrows) {
     EXPECT_GT(bytes.size(), 44u);
 
     // Truncate the payload by 50 bytes
-    std::vector<uint8_t> truncated(bytes.begin(), bytes.end() - 50);
+    std::vector<keel::u8> truncated(bytes.begin(), bytes.end() - 50);
     EXPECT_THROW(readWav(truncated.data(), truncated.size()), Error);
 }
 
 TEST(AudioRobustnessTest, ExtremeSampleRatesAndMultiChannel) {
-    const size_t N = 100;
-    const size_t C = 6; // 5.1 surround 6-channel
+    const keel::usize N = 100;
+    const keel::usize C = 6; // 5.1 surround 6-channel
     const double Fs = 192000.0; // 192 kHz studio rate
 
     Value y = Value::matrix(N, C, ValueType::DOUBLE);
     double *p = y.doubleDataMut();
-    for (size_t c = 0; c < C; ++c) {
-        for (size_t t = 0; t < N; ++t) {
+    for (keel::usize c = 0; c < C; ++c) {
+        for (keel::usize t = 0; t < N; ++t) {
             p[c * N + t] = 0.1 * (c + 1);
         }
     }
@@ -69,8 +70,8 @@ TEST(AudioRobustnessTest, ExtremeSampleRatesAndMultiChannel) {
     EXPECT_EQ(d.totalSamples, N);
 
     const double *dec = d.y.doubleData();
-    for (size_t c = 0; c < C; ++c) {
-        for (size_t t = 0; t < N; ++t) {
+    for (keel::usize c = 0; c < C; ++c) {
+        for (keel::usize t = 0; t < N; ++t) {
             EXPECT_NEAR(dec[c * N + t], 0.1 * (c + 1), 0.0001);
         }
     }

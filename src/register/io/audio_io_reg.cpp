@@ -3,6 +3,8 @@
 // Registration of audioread, audiowrite, audioinfo, midiread, midiwrite, midiinfo
 // into the NK engine with Virtual Filesystem (VFS) integration.
 
+#include <keel/core.h>
+#include <keel/ref.h>
 #include <numkit/audio/io/audio_io.hpp>
 #include "io/midi_codec.hpp"
 
@@ -31,7 +33,7 @@ std::string lowerExt(const std::string &path) {
 
 } // anonymous
 
-void audioread_reg(Span<const Value> args, size_t nargout, Span<Value> outs,
+void audioread_reg(keel::ArrayRef<Value> args, keel::usize nargout, keel::MutArrayRef<Value> outs,
                    CallContext &ctx)
 {
     argcheck::checkNargin(args.size(), 1, 3, "audioread");
@@ -41,11 +43,11 @@ void audioread_reg(Span<const Value> args, size_t nargout, Span<Value> outs,
     }
 
     const std::string path = args[0].toString();
-    int64_t startSample = 1;
-    int64_t endSample = -1;
+    keel::i64 startSample = 1;
+    keel::i64 endSample = -1;
     bool nativeType = false;
 
-    for (size_t i = 1; i < args.size(); ++i) {
+    for (keel::usize i = 1; i < args.size(); ++i) {
         if (args[i].isChar() || args[i].isString()) {
             std::string opt = args[i].toString();
             for (char &c : opt) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -53,9 +55,9 @@ void audioread_reg(Span<const Value> args, size_t nargout, Span<Value> outs,
             else if (opt == "double") nativeType = false;
         } else if (args[i].isNumeric()) {
             const auto &d = args[i].dims();
-            size_t n = d.numel();
-            if (n >= 1) startSample = static_cast<int64_t>(args[i].elemAsDouble(0));
-            if (n >= 2) endSample = static_cast<int64_t>(args[i].elemAsDouble(1));
+            keel::usize n = d.numel();
+            if (n >= 1) startSample = static_cast<keel::i64>(args[i].elemAsDouble(0));
+            if (n >= 2) endSample = static_cast<keel::i64>(args[i].elemAsDouble(1));
         }
     }
 
@@ -67,17 +69,17 @@ void audioread_reg(Span<const Value> args, size_t nargout, Span<Value> outs,
     }
 
     const std::string bytes = rp.fs->readFileBytes(rp.path);
-    AudioData data = audioreadFromBytes(reinterpret_cast<const uint8_t *>(bytes.data()),
+    AudioData data = audioreadFromBytes(reinterpret_cast<const keel::u8 *>(bytes.data()),
                                        bytes.size(), startSample, endSample, nativeType,
-                                       ctx.engine->resource());
+                                       ctx.engine->allocator());
 
     outs[0] = std::move(data.y);
     if (nargout >= 2 && outs.size() >= 2) {
-        outs[1] = Value::scalar(data.sampleRate, ctx.engine->resource());
+        outs[1] = Value::scalar(data.sampleRate, ctx.engine->allocator());
     }
 }
 
-void audiowrite_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> /*outs*/,
+void audiowrite_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::MutArrayRef<Value> /*outs*/,
                     CallContext &ctx)
 {
     argcheck::checkNargin(args.size(), 3, "audiowrite");
@@ -97,20 +99,20 @@ void audiowrite_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> /*ou
     std::string ext = lowerExt(path);
     if (ext.empty()) ext = "wav";
 
-    uint16_t bitsPerSample = 16;
+    keel::u16 bitsPerSample = 16;
     std::string title;
     std::string artist;
     std::string comment;
 
     // Parse NV pairs
-    for (size_t i = 3; i + 1 < args.size(); i += 2) {
+    for (keel::usize i = 3; i + 1 < args.size(); i += 2) {
         if (!args[i].isChar() && !args[i].isString()) continue;
         std::string key = args[i].toString();
         for (char &c : key) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 
         if (key == "bitspersample") {
             if (args[i+1].isNumeric()) {
-                bitsPerSample = static_cast<uint16_t>(args[i+1].elemAsDouble(0));
+                bitsPerSample = static_cast<keel::u16>(args[i+1].elemAsDouble(0));
             }
         } else if (key == "title") {
             title = args[i+1].toString();
@@ -132,7 +134,7 @@ void audiowrite_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> /*ou
     rp.fs->writeFileBytes(rp.path, std::string(outBytes.begin(), outBytes.end()));
 }
 
-void audioinfo_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> outs,
+void audioinfo_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::MutArrayRef<Value> outs,
                    CallContext &ctx)
 {
     argcheck::checkNargin(args.size(), 1, 1, "audioinfo");
@@ -149,9 +151,9 @@ void audioinfo_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> outs,
     }
 
     const std::string bytes = rp.fs->readFileBytes(rp.path);
-    AudioInfo info = audioinfoFromBytes(reinterpret_cast<const uint8_t *>(bytes.data()), bytes.size());
+    AudioInfo info = audioinfoFromBytes(reinterpret_cast<const keel::u8 *>(bytes.data()), bytes.size());
 
-    auto *mr = ctx.engine->resource();
+    auto *mr = ctx.engine->allocator();
     Value s = Value::structure(mr);
     s.field("Filename")          = Value::fromString(path, mr);
     s.field("CompressionMethod") = Value::fromString(info.compressionMethod, mr);
@@ -168,7 +170,7 @@ void audioinfo_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> outs,
     outs[0] = std::move(s);
 }
 
-void midiread_reg(Span<const Value> args, size_t nargout, Span<Value> outs,
+void midiread_reg(keel::ArrayRef<Value> args, keel::usize nargout, keel::MutArrayRef<Value> outs,
                   CallContext &ctx)
 {
     argcheck::checkNargin(args.size(), 1, 1, "midiread");
@@ -180,11 +182,11 @@ void midiread_reg(Span<const Value> args, size_t nargout, Span<Value> outs,
     }
 
     const std::string bytes = rp.fs->readFileBytes(rp.path);
-    outs[0] = readMidi(reinterpret_cast<const uint8_t *>(bytes.data()), bytes.size(), ctx.engine->resource());
+    outs[0] = readMidi(reinterpret_cast<const keel::u8 *>(bytes.data()), bytes.size(), ctx.engine->allocator());
 
     if (nargout >= 2 && outs.size() >= 2) {
-        MidiInfo mi = peekMidi(reinterpret_cast<const uint8_t *>(bytes.data()), bytes.size());
-        auto *mr = ctx.engine->resource();
+        MidiInfo mi = peekMidi(reinterpret_cast<const keel::u8 *>(bytes.data()), bytes.size());
+        auto *mr = ctx.engine->allocator();
         Value s = Value::structure(mr);
         s.field("Format")               = Value::scalar(static_cast<double>(mi.format), mr);
         s.field("NumTracks")            = Value::scalar(static_cast<double>(mi.numTracks), mr);
@@ -197,16 +199,16 @@ void midiread_reg(Span<const Value> args, size_t nargout, Span<Value> outs,
     }
 }
 
-void midiwrite_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> /*outs*/,
+void midiwrite_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::MutArrayRef<Value> /*outs*/,
                    CallContext &ctx)
 {
     argcheck::checkNargin(args.size(), 2, 4, "midiwrite");
     const std::string path = args[0].toString();
     const Value &notes = args[1];
 
-    uint16_t tpqn = 480;
+    keel::u16 tpqn = 480;
     double tempo = 120.0;
-    if (args.size() >= 3 && args[2].isNumeric()) tpqn = static_cast<uint16_t>(args[2].elemAsDouble(0));
+    if (args.size() >= 3 && args[2].isNumeric()) tpqn = static_cast<keel::u16>(args[2].elemAsDouble(0));
     if (args.size() >= 4 && args[3].isNumeric()) tempo = args[3].elemAsDouble(0);
 
     auto bytes = writeMidiToBytes(notes, tpqn, tempo);
@@ -218,7 +220,7 @@ void midiwrite_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> /*out
     rp.fs->writeFileBytes(rp.path, std::string(bytes.begin(), bytes.end()));
 }
 
-void midiinfo_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> outs,
+void midiinfo_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::MutArrayRef<Value> outs,
                   CallContext &ctx)
 {
     argcheck::checkNargin(args.size(), 1, 1, "midiinfo");
@@ -230,9 +232,9 @@ void midiinfo_reg(Span<const Value> args, size_t /*nargout*/, Span<Value> outs,
     }
 
     const std::string bytes = rp.fs->readFileBytes(rp.path);
-    MidiInfo mi = peekMidi(reinterpret_cast<const uint8_t *>(bytes.data()), bytes.size());
+    MidiInfo mi = peekMidi(reinterpret_cast<const keel::u8 *>(bytes.data()), bytes.size());
 
-    auto *mr = ctx.engine->resource();
+    auto *mr = ctx.engine->allocator();
     Value s = Value::structure(mr);
     s.field("Format")               = Value::scalar(static_cast<double>(mi.format), mr);
     s.field("NumTracks")            = Value::scalar(static_cast<double>(mi.numTracks), mr);

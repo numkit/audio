@@ -22,6 +22,12 @@
 //   bE[14..42] = bE[i-1] * 1.0711703             (log-spaced, ~27 bands/octave)
 // PMR HARD RULE.
 
+#include <keel/core.h>
+#include <keel/memory.h>
+#include <keel/arena.h>
+#include <keel/array.h>
+#include <keel/complex.h>
+#include <keel/math.h>
 #include <numkit/audio/spectral/cepstral.hpp>
 #include <numkit/audio/spectral/melspec_delta.hpp>
 
@@ -31,13 +37,11 @@
 #include <numkit/value/argcheck.hpp>
 #include <numkit/value/value.hpp>
 #include <numkit/value/error.hpp>
-#include <numkit/value/scratch.hpp>
 
 #include "fft_one_sided.hpp"
 
 #include <algorithm>
 #include <cmath>
-#include <complex>
 #include <limits>
 #include <vector>
 
@@ -50,23 +54,23 @@ namespace numkit::audio {
 namespace {
 
 // Periodic Hamming window: w[n] = 0.54 - 0.46 * cos(2π·n / N).
-void hammingPeriodic(double *w, size_t N)
+void hammingPeriodic(double *w, keel::usize N)
 {
-    for (size_t n = 0; n < N; ++n)
+    for (keel::usize n = 0; n < N; ++n)
         w[n] = 0.54 - 0.46 * std::cos(2.0 * M_PI * static_cast<double>(n)
                                         / static_cast<double>(N));
 }
 
 // Slaney mel band edges (42 entries; Slaney, "Auditory Toolbox", 1998).
 // factor=133.33...; first 13 linear at factor/2 step; rest log-spaced.
-void slaneyBandEdges(double *edges, size_t numEdges = 42)
+void slaneyBandEdges(double *edges, keel::usize numEdges = 42)
 {
     if (numEdges < 1) return;
     const double factor = 133.33333333333333;
-    const size_t linEnd = std::min<size_t>(13, numEdges);
-    for (size_t i = 0; i < linEnd; ++i)
+    const keel::usize linEnd = std::min<keel::usize>(13, numEdges);
+    for (keel::usize i = 0; i < linEnd; ++i)
         edges[i] = factor + (factor * 0.5) * static_cast<double>(i);
-    for (size_t i = linEnd; i < numEdges; ++i)
+    for (keel::usize i = linEnd; i < numEdges; ++i)
         edges[i] = edges[i - 1] * 1.0711703;
 }
 
@@ -89,26 +93,26 @@ void slaneyBandEdges(double *edges, size_t numEdges = 42)
 //   M. Slaney, "Auditory Toolbox, Version 2", Interval Research Corp.
 //   Technical Report #1998-010, 1998.
 // ---------------------------------------------------------------------------
-void designMelFilterBankSlaney(double *FB, double fs, std::size_t NFFT,
-                               const double *edges, std::size_t numEdges,
-                               std::size_t H /* = NFFT/2 + 1 */)
+void designMelFilterBankSlaney(double *FB, double fs, keel::usize NFFT,
+                               const double *edges, keel::usize numEdges,
+                               keel::usize H /* = NFFT/2 + 1 */)
 {
     // Early return when there is nothing to construct.
     if (numEdges < 3 || H == 0 || NFFT == 0) {
         return;
     }
 
-    const std::size_t numBands = numEdges - 2;
+    const keel::usize numBands = numEdges - 2;
 
     // Zero the whole output buffer first, then fill it.
-    for (std::size_t i = 0; i < H * numBands; ++i) {
+    for (keel::usize i = 0; i < H * numBands; ++i) {
         FB[i] = 0.0;
     }
 
     // Hz per FFT bin on the one-sided frequency grid.
     const double binToHz = fs / static_cast<double>(NFFT);
 
-    for (std::size_t k = 0; k < numBands; ++k) {
+    for (keel::usize k = 0; k < numBands; ++k) {
         const double left = edges[k];
         const double centre = edges[k + 1];
         const double right = edges[k + 2];
@@ -128,7 +132,7 @@ void designMelFilterBankSlaney(double *FB, double fs, std::size_t NFFT,
         const double norm = 2.0 / baseWidth;
 
         double *column = FB + k * H;
-        for (std::size_t j = 0; j < H; ++j) {
+        for (keel::usize j = 0; j < H; ++j) {
             const double f = static_cast<double>(j) * binToHz;
             const double rise = (f - left) / riseWidth;
             const double fall = (right - f) / fallWidth;
@@ -168,8 +172,8 @@ inline double erb2hzVal(double e)  { return (std::pow(10.0, e / erbScale()) - 1.
 // freqz(...,'whole') evaluates H at ω = 2π k/N for k=0..N-1.
 // We compute one-sided (k=0..N/2) since H is conjugate-symmetric for
 // real coefficients.
-void computeGammatoneFreqRespOneSided(double fs, const double *Fc, size_t numBands,
-                                       size_t NFFT, size_t H, double *bank)
+void computeGammatoneFreqRespOneSided(double fs, const double *Fc, keel::usize numBands,
+                                       keel::usize NFFT, keel::usize H, double *bank)
 {
     const double T = 1.0 / fs;
     const double EarQ = 9.26449;
@@ -177,8 +181,7 @@ void computeGammatoneFreqRespOneSided(double fs, const double *Fc, size_t numBan
     const double s32a = std::sqrt(3.0 + std::pow(2.0, 1.5));  // sqrt(3 + 2√2)
     const double s32b = std::sqrt(3.0 - std::pow(2.0, 1.5));  // sqrt(3 - 2√2)
 
-    using cd = std::complex<double>;
-    for (size_t i = 0; i < numBands; ++i) {
+for (keel::usize i = 0; i < numBands; ++i) {
         const double cf = Fc[i];
         const double ERB = cf / EarQ + minBW;
         const double B = 1.019 * 2.0 * M_PI * ERB;
@@ -204,17 +207,17 @@ void computeGammatoneFreqRespOneSided(double fs, const double *Fc, size_t numBan
         //   exp_BT_2j = exp(-B·T + 2j·π·cf·T) = exp(-B·T) · exp(j·cosArg)
         //   common term: -2·exp4j·T + 2·exp_BT_2j·T·(cos ± sX·sin)
         //   gain = abs(prod_4_terms / denom^4)
-        const cd j(0.0, 1.0);
-        const cd exp4j  = std::exp(2.0 * j * cosArg);
-        const cd exp_2j = std::exp(j * cosArg) / expBT;  // exp(-B T + j cosArg)
-        const cd term1 = -2.0 * exp4j * T + 2.0 * exp_2j * T * (cosT - s32b * sinT);
-        const cd term2 = -2.0 * exp4j * T + 2.0 * exp_2j * T * (cosT + s32b * sinT);
-        const cd term3 = -2.0 * exp4j * T + 2.0 * exp_2j * T * (cosT - s32a * sinT);
-        const cd term4 = -2.0 * exp4j * T + 2.0 * exp_2j * T * (cosT + s32a * sinT);
-        const cd denomSimple = -2.0 / std::exp(2.0 * B * T) - 2.0 * exp4j
+        const keel::c64 j(0.0, 1.0);
+        const keel::c64 exp4j  = keel::exp(2.0 * j * cosArg);
+        const keel::c64 exp_2j = keel::exp(j * cosArg) / expBT;  // exp(-B T + j cosArg)
+        const keel::c64 term1 = -2.0 * exp4j * T + 2.0 * exp_2j * T * (cosT - s32b * sinT);
+        const keel::c64 term2 = -2.0 * exp4j * T + 2.0 * exp_2j * T * (cosT + s32b * sinT);
+        const keel::c64 term3 = -2.0 * exp4j * T + 2.0 * exp_2j * T * (cosT - s32a * sinT);
+        const keel::c64 term4 = -2.0 * exp4j * T + 2.0 * exp_2j * T * (cosT + s32a * sinT);
+        const keel::c64 denomSimple = -2.0 / std::exp(2.0 * B * T) - 2.0 * exp4j
                                 + 2.0 * (1.0 + exp4j) / expBT;
-        const cd denom4 = std::pow(denomSimple, 4);
-        const double gain = std::abs((term1 * term2 * term3 * term4) / denom4);
+        const keel::c64 denom4 = keel::pow(denomSimple, 4);
+        const double gain = keel::abs((term1 * term2 * term3 * term4) / denom4);
 
         // Section coefficients: [b0, b1, b2, a0, a1, a2]
         // sec1 numerator divided by gain.
@@ -226,18 +229,18 @@ void computeGammatoneFreqRespOneSided(double fs, const double *Fc, size_t numBan
 
         // Compute |H(ω_k)| for k = 0..H-1.
         double *bankRow = bank + i * H;  // row i, H columns (column-major over H)
-        for (size_t k = 0; k < H; ++k) {
+        for (keel::usize k = 0; k < H; ++k) {
             const double w = -2.0 * M_PI * static_cast<double>(k) / static_cast<double>(NFFT);
-            const cd zinv  = std::exp(j * w);
-            const cd zinv2 = zinv * zinv;
+            const keel::c64 zinv  = keel::exp(j * w);
+            const keel::c64 zinv2 = zinv * zinv;
             // Same denom for all 4 sections.
-            const cd den = B0 + B1 * zinv + B2 * zinv2;
-            const cd num1 = b0_1 + b1_1 * zinv + b2_1 * zinv2;
-            const cd num2 = b0_2 + b1_2 * zinv + b2_2 * zinv2;
-            const cd num3 = b0_3 + b1_3 * zinv + b2_3 * zinv2;
-            const cd num4 = b0_4 + b1_4 * zinv + b2_4 * zinv2;
-            const cd Htot = (num1 * num2 * num3 * num4) / (den * den * den * den);
-            bankRow[k] = std::abs(Htot);
+            const keel::c64 den = B0 + B1 * zinv + B2 * zinv2;
+            const keel::c64 num1 = b0_1 + b1_1 * zinv + b2_1 * zinv2;
+            const keel::c64 num2 = b0_2 + b1_2 * zinv + b2_2 * zinv2;
+            const keel::c64 num3 = b0_3 + b1_3 * zinv + b2_3 * zinv2;
+            const keel::c64 num4 = b0_4 + b1_4 * zinv + b2_4 * zinv2;
+            const keel::c64 Htot = (num1 * num2 * num3 * num4) / (den * den * den * den);
+            bankRow[k] = keel::abs(Htot);
         }
     }
 }
@@ -261,7 +264,7 @@ void cepstralCoefficients_argcheck(const Value &S, int numCoeffs, CepstralRect r
                     0, 0, "cepstralCoefficients", "",
                     "numkit:cepstralCoefficients:BadN");
     if (rect != CepstralRect::None) {
-        for (std::size_t i = 0; i < S.numel(); ++i)
+        for (keel::usize i = 0; i < S.numel(); ++i)
             if (!(S.elemAsDouble(i) >= 0.0))
                 throw Error("cepstralCoefficients: input 1 (S) must be "
                             "nonnegative for the '" +
@@ -306,17 +309,17 @@ void gtcc_argcheck(const Value &x, double fs, int numCoeffs)
 // double/single real, nonnegative unless Rectification='none'; zero bins
 // clamp to realmin before log10 (not -Inf); NumCoeffs defaults to 13.
 Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
-                           std::pmr::memory_resource *mr)
+                           keel::Allocator *mr)
 {
     cepstralCoefficients_argcheck(S, numCoeffs, rect);
 
     const bool wantSingle = S.type() == ValueType::SINGLE;
     const Dims &d = S.dims();
-    const size_t L = d.dim(0);
-    const size_t K = static_cast<size_t>(numCoeffs);
+    const keel::usize L = d.dim(0);
+    const keel::usize K = static_cast<keel::usize>(numCoeffs);
 
     // Output dims: (d2, K, d3, ...).
-    std::vector<size_t> od;
+    std::vector<keel::usize> od;
     od.push_back(d.dim(1));
     od.push_back(K);
     for (int k = 2; k < d.ndim(); ++k) od.push_back(d.dim(k));
@@ -328,7 +331,7 @@ Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
         out = Value::matrixND(od.data(), static_cast<int>(od.size()),
                               wantSingle ? ValueType::SINGLE
                                          : ValueType::DOUBLE, mr);
-    const size_t d1 = d.dim(1);                    // frames per page
+    const keel::usize d1 = d.dim(1);                    // frames per page
     if (L == 0 || d1 == 0 || S.numel() == 0) return out;
 
     // Column-major (L, d1, d2, …): the L values of trailing frame j are
@@ -349,15 +352,15 @@ Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
     };
 
     // DCT basis K × L over the dim-1 axis (values verified vs R2025b).
-    ScratchArena scratch(mr);
-    ScratchVec<double> D(K * L, &scratch);
+    keel::ArenaTemp scratch = keel::get_scratch(mr);
+    keel::Array<double> D(K * L, scratch.allocator());
     {
         const double A = std::sqrt(1.0 / static_cast<double>(L));
         const double B = std::sqrt(2.0 / static_cast<double>(L));
-        for (std::size_t l = 0; l < L; ++l) D[0 + l * K] = A;
-        for (std::size_t l = 0; l < L; ++l) {
+        for (keel::usize l = 0; l < L; ++l) D[0 + l * K] = A;
+        for (keel::usize l = 0; l < L; ++l) {
             const double lc = static_cast<double>(l) + 0.5;
-            for (std::size_t n = 1; n < K; ++n)
+            for (keel::usize n = 1; n < K; ++n)
                 D[n + l * K] = B * std::cos(M_PI * static_cast<double>(n)
                                             * lc / static_cast<double>(L));
         }
@@ -368,36 +371,36 @@ Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
     // rectification and the accumulation the same way.
     double *od_d = wantSingle ? nullptr : out.doubleDataMut();
     float *od_f = wantSingle ? out.singleDataMut() : nullptr;
-    ScratchVec<double> rectD(&scratch);
-    ScratchVec<float> rectF(&scratch);
+    keel::Array<double> rectD(scratch.allocator());
+    keel::Array<float> rectF(scratch.allocator());
     if (wantSingle) {
         rectF.resize(S.numel());
-        for (std::size_t i = 0; i < S.numel(); ++i)
+        for (keel::usize i = 0; i < S.numel(); ++i)
             rectF[i] = static_cast<float>(rectify(S.elemAsDouble(i)));
     } else {
         rectD.resize(S.numel());
-        for (std::size_t i = 0; i < S.numel(); ++i)
+        for (keel::usize i = 0; i < S.numel(); ++i)
             rectD[i] = rectify(S.elemAsDouble(i));
     }
     // Page blocks over dims[2..]: each holds d1 frames.
-    const size_t pageFrames = d1;
-    const size_t numPages = S.numel() / (L * pageFrames);
-    for (size_t pg = 0; pg < numPages; ++pg) {
-        const size_t pgBase = pg * pageFrames;      // frame base in S
-        const size_t outPg = pg * pageFrames * K;   // base in out
-        for (size_t a = 0; a < pageFrames; ++a) {
-            const size_t sBase = (pgBase + a) * L;  // frame's L values
-            for (size_t k = 0; k < K; ++k) {
-                const size_t oi = outPg + a + k * pageFrames;
+    const keel::usize pageFrames = d1;
+    const keel::usize numPages = S.numel() / (L * pageFrames);
+    for (keel::usize pg = 0; pg < numPages; ++pg) {
+        const keel::usize pgBase = pg * pageFrames;      // frame base in S
+        const keel::usize outPg = pg * pageFrames * K;   // base in out
+        for (keel::usize a = 0; a < pageFrames; ++a) {
+            const keel::usize sBase = (pgBase + a) * L;  // frame's L values
+            for (keel::usize k = 0; k < K; ++k) {
+                const keel::usize oi = outPg + a + k * pageFrames;
                 if (od_f) {
                     float acc = 0.0f;
-                    for (size_t l = 0; l < L; ++l)
+                    for (keel::usize l = 0; l < L; ++l)
                         acc += static_cast<float>(D[k + l * K])
                                * rectF[sBase + l];
                     od_f[oi] = acc;
                 } else {
                     double acc = 0.0;
-                    for (size_t l = 0; l < L; ++l)
+                    for (keel::usize l = 0; l < L; ++l)
                         acc += D[k + l * K] * rectD[sBase + l];
                     od_d[oi] = acc;
                 }
@@ -418,20 +421,20 @@ Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
 //   5. cepstralCoefficients (log10 + DCT-II unitary, NumCoeffs=13).
 //   6. Prepend logE column → numFrames × (NumCoeffs+1).
 std::tuple<Value, Value, Value>
-mfcc(const Value &x, double fs, int numCoeffs, std::pmr::memory_resource *mr)
+mfcc(const Value &x, double fs, int numCoeffs, keel::Allocator *mr)
 {
     mfcc_argcheck(x, fs, numCoeffs);
-    const size_t N = x.numel();
-    const size_t winLen  = static_cast<size_t>(std::round(fs * 0.03));
-    const size_t overlap = static_cast<size_t>(std::round(fs * 0.02));
-    const size_t hop = (winLen > overlap) ? (winLen - overlap) : 1;
-    const size_t fftLen = winLen;
-    const size_t H = fftLen / 2 + 1;
-    const size_t numFrames = (N >= winLen) ? ((N - winLen) / hop + 1) : 0;
-    const size_t NC = static_cast<size_t>(numCoeffs);
+    const keel::usize N = x.numel();
+    const keel::usize winLen  = static_cast<keel::usize>(std::round(fs * 0.03));
+    const keel::usize overlap = static_cast<keel::usize>(std::round(fs * 0.02));
+    const keel::usize hop = (winLen > overlap) ? (winLen - overlap) : 1;
+    const keel::usize fftLen = winLen;
+    const keel::usize H = fftLen / 2 + 1;
+    const keel::usize numFrames = (N >= winLen) ? ((N - winLen) / hop + 1) : 0;
+    const keel::usize NC = static_cast<keel::usize>(numCoeffs);
 
     // Slaney edges → 42 entries → numBands = 40 (validNumBands depends on fs).
-    constexpr size_t numEdges = 42;
+    constexpr keel::usize numEdges = 42;
 
     // Output: numFrames × (NumCoeffs+1)  with LogEnergy='append'.
     Value out = Value::matrix(numFrames, numFrames == 0 ? 0 : (NC + 1),
@@ -440,30 +443,30 @@ mfcc(const Value &x, double fs, int numCoeffs, std::pmr::memory_resource *mr)
     if (numFrames == 0 || winLen == 0)
         return {out, zero, zero};
 
-    ScratchArena scratch(mr);
+    keel::ArenaTemp scratch = keel::get_scratch(mr);
 
     // Window
-    ScratchVec<double> win(winLen, &scratch);
+    keel::Array<double> win(winLen, scratch.allocator());
     hammingPeriodic(win.data(), winLen);
 
     // Slaney edges + filter bank (H × numBands)
-    ScratchVec<double> edges(numEdges, &scratch);
+    keel::Array<double> edges(numEdges, scratch.allocator());
     slaneyBandEdges(edges.data(), numEdges);
-    const size_t numBands = numEdges - 2;
-    ScratchVec<double> FB(H * numBands, &scratch);
+    const keel::usize numBands = numEdges - 2;
+    keel::Array<double> FB(H * numBands, scratch.allocator());
     designMelFilterBankSlaney(FB.data(), fs, fftLen, edges.data(), numEdges, H);
 
     // Per-frame buffers
-    ScratchVec<double> frame(winLen, &scratch);
-    ScratchVec<double> mag(H, &scratch);
-    ScratchVec<double> melMag(numBands * numFrames, &scratch);
-    ScratchVec<double> logE(numFrames, &scratch);
+    keel::Array<double> frame(winLen, scratch.allocator());
+    keel::Array<double> mag(H, scratch.allocator());
+    keel::Array<double> melMag(numBands * numFrames, scratch.allocator());
+    keel::Array<double> logE(numFrames, scratch.allocator());
 
-    for (size_t f = 0; f < numFrames; ++f) {
-        const size_t start = f * hop;
+    for (keel::usize f = 0; f < numFrames; ++f) {
+        const keel::usize start = f * hop;
         // Energy on the UNWINDOWED frame (standard MFCC log-energy term).
         double E = 0.0;
-        for (size_t i = 0; i < winLen; ++i) {
+        for (keel::usize i = 0; i < winLen; ++i) {
             const double xi = x.elemAsDouble(start + i);
             E += xi * xi;
         }
@@ -471,14 +474,14 @@ mfcc(const Value &x, double fs, int numCoeffs, std::pmr::memory_resource *mr)
         logE[f] = std::log(E);  // natural log
 
         // Window then FFT magnitude
-        for (size_t i = 0; i < winLen; ++i)
+        for (keel::usize i = 0; i < winLen; ++i)
             frame[i] = x.elemAsDouble(start + i) * win[i];
         detail::fftMagHalf(mr, frame.data(), fftLen, mag.data());
 
         // Apply filterbank: melMag(b, f) = Σ_j FB(j, b) * mag(j)
-        for (size_t b = 0; b < numBands; ++b) {
+        for (keel::usize b = 0; b < numBands; ++b) {
             double s = 0.0;
-            for (size_t j = 0; j < H; ++j) s += FB[j + b * H] * mag[j];
+            for (keel::usize j = 0; j < H; ++j) s += FB[j + b * H] * mag[j];
             melMag[b + f * numBands] = s;
         }
     }
@@ -495,9 +498,9 @@ mfcc(const Value &x, double fs, int numCoeffs, std::pmr::memory_resource *mr)
     // Assemble out: [logE, coeffs] (numFrames × (NC+1)).
     double *od = out.doubleDataMut();
     const double *Cd = coeffs.doubleData();
-    for (size_t f = 0; f < numFrames; ++f) od[f] = logE[f];
-    for (size_t n = 0; n < NC; ++n)
-        for (size_t f = 0; f < numFrames; ++f)
+    for (keel::usize f = 0; f < numFrames; ++f) od[f] = logE[f];
+    for (keel::usize n = 0; n < NC; ++n)
+        for (keel::usize f = 0; f < numFrames; ++f)
             od[f + (n + 1) * numFrames] = Cd[f + n * numFrames];
 
     Value delta      = audioDelta(out, 9, mr);
@@ -528,24 +531,24 @@ mfcc(const Value &x, double fs, int numCoeffs, std::pmr::memory_resource *mr)
 //   6. cepstralCoefficients (log10 + DCT-II unitary).
 //   7. Prepend logE column → numFrames × (NumCoeffs+1).
 std::tuple<Value, Value, Value>
-gtcc(const Value &x, double fs, int numCoeffs, std::pmr::memory_resource *mr)
+gtcc(const Value &x, double fs, int numCoeffs, keel::Allocator *mr)
 {
     gtcc_argcheck(x, fs, numCoeffs);
-    const size_t N = x.numel();
-    const size_t winLen  = static_cast<size_t>(std::round(fs * 0.03));
-    const size_t overlap = static_cast<size_t>(std::round(fs * 0.02));
-    const size_t hop = (winLen > overlap) ? (winLen - overlap) : 1;
-    const size_t fftLen = winLen;
-    const size_t H = fftLen / 2 + 1;
-    const size_t numFrames = (N >= winLen) ? ((N - winLen) / hop + 1) : 0;
-    const size_t NC = static_cast<size_t>(numCoeffs);
+    const keel::usize N = x.numel();
+    const keel::usize winLen  = static_cast<keel::usize>(std::round(fs * 0.03));
+    const keel::usize overlap = static_cast<keel::usize>(std::round(fs * 0.02));
+    const keel::usize hop = (winLen > overlap) ? (winLen - overlap) : 1;
+    const keel::usize fftLen = winLen;
+    const keel::usize H = fftLen / 2 + 1;
+    const keel::usize numFrames = (N >= winLen) ? ((N - winLen) / hop + 1) : 0;
+    const keel::usize NC = static_cast<keel::usize>(numCoeffs);
 
     // ERB-spaced Fc from FrequencyRange=[50, fs/2].
     const double fLow = 50.0;
     const double fHigh = fs * 0.5;
     const double lowERB = hz2erbVal(fLow);
     const double highERB = hz2erbVal(fHigh);
-    const size_t numBands = static_cast<size_t>(std::ceil(highERB - lowERB));
+    const keel::usize numBands = static_cast<keel::usize>(std::ceil(highERB - lowERB));
 
     Value out = Value::matrix(numFrames, numFrames == 0 ? 0 : (NC + 1),
                               ValueType::DOUBLE, mr);
@@ -553,46 +556,46 @@ gtcc(const Value &x, double fs, int numCoeffs, std::pmr::memory_resource *mr)
     if (numFrames == 0 || winLen == 0 || numBands == 0)
         return {out, zero, zero};
 
-    ScratchArena scratch(mr);
+    keel::ArenaTemp scratch = keel::get_scratch(mr);
 
     // Window
-    ScratchVec<double> win(winLen, &scratch);
+    keel::Array<double> win(winLen, scratch.allocator());
     hammingPeriodic(win.data(), winLen);
 
     // Fc = erb2hz(linspace(lowERB, highERB, numBands))
-    ScratchVec<double> Fc(numBands, &scratch);
+    keel::Array<double> Fc(numBands, scratch.allocator());
     if (numBands == 1) {
         Fc[0] = erb2hzVal(lowERB);
     } else {
         const double step = (highERB - lowERB) / static_cast<double>(numBands - 1);
-        for (size_t i = 0; i < numBands; ++i)
+        for (keel::usize i = 0; i < numBands; ++i)
             Fc[i] = erb2hzVal(lowERB + step * static_cast<double>(i));
     }
 
     // Gammatone filterbank one-sided (numBands × H).
-    ScratchVec<double> bank(numBands * H, &scratch);
+    keel::Array<double> bank(numBands * H, scratch.allocator());
     computeGammatoneFreqRespOneSided(fs, Fc.data(), numBands, fftLen, H, bank.data());
 
     // Bandwidth normalization: BW[i] = 1.019 * 24.7 * (0.00437 * Fc[i] + 1).
     // Then bank[i, k] /= BW[i]/2.
-    ScratchVec<double> BW(numBands, &scratch);
-    for (size_t i = 0; i < numBands; ++i) {
+    keel::Array<double> BW(numBands, scratch.allocator());
+    for (keel::usize i = 0; i < numBands; ++i) {
         BW[i] = 1.019 * 24.7 * (0.00437 * Fc[i] + 1.0);
         const double inv = (BW[i] > 0.0) ? 2.0 / BW[i] : 0.0;
-        for (size_t k = 0; k < H; ++k) bank[i * H + k] *= inv;
+        for (keel::usize k = 0; k < H; ++k) bank[i * H + k] *= inv;
     }
 
     // Per-frame buffers
-    ScratchVec<double> frame(winLen, &scratch);
-    ScratchVec<double> mag(H, &scratch);
-    ScratchVec<double> melMag(numBands * numFrames, &scratch);
-    ScratchVec<double> logE(numFrames, &scratch);
+    keel::Array<double> frame(winLen, scratch.allocator());
+    keel::Array<double> mag(H, scratch.allocator());
+    keel::Array<double> melMag(numBands * numFrames, scratch.allocator());
+    keel::Array<double> logE(numFrames, scratch.allocator());
 
-    for (size_t f = 0; f < numFrames; ++f) {
-        const size_t start = f * hop;
+    for (keel::usize f = 0; f < numFrames; ++f) {
+        const keel::usize start = f * hop;
         // Energy on UNWINDOWED frame.
         double E = 0.0;
-        for (size_t i = 0; i < winLen; ++i) {
+        for (keel::usize i = 0; i < winLen; ++i) {
             const double xi = x.elemAsDouble(start + i);
             E += xi * xi;
         }
@@ -600,7 +603,7 @@ gtcc(const Value &x, double fs, int numCoeffs, std::pmr::memory_resource *mr)
         logE[f] = std::log(E);
 
         // Window then FFT magnitude
-        for (size_t i = 0; i < winLen; ++i)
+        for (keel::usize i = 0; i < winLen; ++i)
             frame[i] = x.elemAsDouble(start + i) * win[i];
         detail::fftMagHalf(mr, frame.data(), fftLen, mag.data());
 
@@ -608,12 +611,12 @@ gtcc(const Value &x, double fs, int numCoeffs, std::pmr::memory_resource *mr)
         // with bins 1..H-2 doubled (k=0 DC, k=H-1 Nyquist single-counted).
         // For odd NFFT, k=H-1 is NOT Nyquist — also double it.
         const bool nyquistSingle = ((fftLen % 2) == 0);
-        for (size_t b = 0; b < numBands; ++b) {
+        for (keel::usize b = 0; b < numBands; ++b) {
             double s = 0.0;
             // k=0 (DC): single
             s += bank[b * H + 0] * mag[0];
             // k=1..H-2: doubled
-            for (size_t k = 1; k + 1 < H; ++k)
+            for (keel::usize k = 1; k + 1 < H; ++k)
                 s += 2.0 * bank[b * H + k] * mag[k];
             // k=H-1: Nyquist iff fftLen even
             if (H >= 1) {
@@ -636,9 +639,9 @@ gtcc(const Value &x, double fs, int numCoeffs, std::pmr::memory_resource *mr)
     // Assemble out: [logE, coeffs] (numFrames × (NC+1)).
     double *od = out.doubleDataMut();
     const double *Cd = coeffs.doubleData();
-    for (size_t f = 0; f < numFrames; ++f) od[f] = logE[f];
-    for (size_t n = 0; n < NC; ++n)
-        for (size_t f = 0; f < numFrames; ++f)
+    for (keel::usize f = 0; f < numFrames; ++f) od[f] = logE[f];
+    for (keel::usize n = 0; n < NC; ++n)
+        for (keel::usize f = 0; f < numFrames; ++f)
             od[f + (n + 1) * numFrames] = Cd[f + n * numFrames];
 
     Value delta      = audioDelta(out, 9, mr);

@@ -1,52 +1,54 @@
 // src/register/audio_library.cpp
 
+#include <keel/core.h>
+#include <keel/ref.h>
 #include <numkit/audio/library.hpp>
 #include <numkit/sys/plugin.hpp>
 
 namespace numkit::audio::detail {
 // scale/freq_scales.cpp
-void hz2mel_reg   (Span<const Value>, size_t, Span<Value>, CallContext &);
-void mel2hz_reg   (Span<const Value>, size_t, Span<Value>, CallContext &);
-void hz2bark_reg  (Span<const Value>, size_t, Span<Value>, CallContext &);
-void bark2hz_reg  (Span<const Value>, size_t, Span<Value>, CallContext &);
-void hz2erb_reg   (Span<const Value>, size_t, Span<Value>, CallContext &);
-void erb2hz_reg   (Span<const Value>, size_t, Span<Value>, CallContext &);
-void phon2sone_reg(Span<const Value>, size_t, Span<Value>, CallContext &);
-void sone2phon_reg(Span<const Value>, size_t, Span<Value>, CallContext &);
+void hz2mel_reg   (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void mel2hz_reg   (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void hz2bark_reg  (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void bark2hz_reg  (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void hz2erb_reg   (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void erb2hz_reg   (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void phon2sone_reg(keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void sone2phon_reg(keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
 
 // spectral/shape_descriptors.cpp
-void spectralCentroid_reg    (Span<const Value>, size_t, Span<Value>, CallContext &);
-void spectralSpread_reg      (Span<const Value>, size_t, Span<Value>, CallContext &);
-void spectralRolloffPoint_reg(Span<const Value>, size_t, Span<Value>, CallContext &);
-void spectralDecrease_reg    (Span<const Value>, size_t, Span<Value>, CallContext &);
-void spectralSlope_reg       (Span<const Value>, size_t, Span<Value>, CallContext &);
-void spectralFlux_reg        (Span<const Value>, size_t, Span<Value>, CallContext &);
-void spectralCrest_reg       (Span<const Value>, size_t, Span<Value>, CallContext &);
-void spectralEntropy_reg     (Span<const Value>, size_t, Span<Value>, CallContext &);
-void spectralFlatness_reg    (Span<const Value>, size_t, Span<Value>, CallContext &);
-void spectralKurtosis_reg    (Span<const Value>, size_t, Span<Value>, CallContext &);
-void spectralSkewness_reg    (Span<const Value>, size_t, Span<Value>, CallContext &);
+void spectralCentroid_reg    (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void spectralSpread_reg      (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void spectralRolloffPoint_reg(keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void spectralDecrease_reg    (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void spectralSlope_reg       (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void spectralFlux_reg        (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void spectralCrest_reg       (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void spectralEntropy_reg     (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void spectralFlatness_reg    (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void spectralKurtosis_reg    (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void spectralSkewness_reg    (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
 
 // spectral/melspec_delta.cpp
-void melSpectrogram_reg      (Span<const Value>, size_t, Span<Value>, CallContext &);
-void audioDelta_reg          (Span<const Value>, size_t, Span<Value>, CallContext &);
+void melSpectrogram_reg      (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void audioDelta_reg          (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
 
 // spectral/cepstral.cpp
-void cepstralCoefficients_reg(Span<const Value>, size_t, Span<Value>, CallContext &);
-void mfcc_reg                (Span<const Value>, size_t, Span<Value>, CallContext &);
-void gtcc_reg                (Span<const Value>, size_t, Span<Value>, CallContext &);
+void cepstralCoefficients_reg(keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void mfcc_reg                (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void gtcc_reg                (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
 
 // features/pitch_harmonics.cpp
-void pitch_reg               (Span<const Value>, size_t, Span<Value>, CallContext &);
-void harmonicRatio_reg       (Span<const Value>, size_t, Span<Value>, CallContext &);
+void pitch_reg               (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void harmonicRatio_reg       (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
 
 // io/audio_io_reg.cpp
-void audioread_reg  (Span<const Value>, size_t, Span<Value>, CallContext &);
-void audiowrite_reg (Span<const Value>, size_t, Span<Value>, CallContext &);
-void audioinfo_reg  (Span<const Value>, size_t, Span<Value>, CallContext &);
-void midiread_reg   (Span<const Value>, size_t, Span<Value>, CallContext &);
-void midiwrite_reg  (Span<const Value>, size_t, Span<Value>, CallContext &);
-void midiinfo_reg   (Span<const Value>, size_t, Span<Value>, CallContext &);
+void audioread_reg  (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void audiowrite_reg (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void audioinfo_reg  (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void midiread_reg   (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void midiwrite_reg  (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
+void midiinfo_reg   (keel::ArrayRef<Value>, keel::usize, keel::MutArrayRef<Value>, CallContext &);
 } // namespace numkit::audio::detail
 
 namespace numkit {

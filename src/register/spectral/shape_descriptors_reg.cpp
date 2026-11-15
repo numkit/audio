@@ -9,6 +9,8 @@
 // Compute reconciled to the canonical mr-last API (matching the header) as
 // part of this split. Phase 2b — see project_layering_refactor memory.
 
+#include <keel/core.h>
+#include <keel/ref.h>
 #include <numkit/audio/spectral/shape_descriptors.hpp>
 
 #include <numkit/sys/plugin.hpp>   // CallContext, ctx.engine->resource()
@@ -21,13 +23,13 @@
 namespace numkit::audio {
 namespace detail {
 
-static StftOptions parseSharedStftOptions(Span<const Value> args,
-                                          std::size_t startIdx,
+static StftOptions parseSharedStftOptions(keel::ArrayRef<Value> args,
+                                          keel::usize startIdx,
                                           const char *fn,
                                           double *thresholdOut = nullptr)
 {
     StftOptions stft;
-    for (std::size_t i = startIdx; i < args.size();) {
+    for (keel::usize i = startIdx; i < args.size();) {
         if (!args[i].isChar() && !args[i].isString())
             throw Error(std::string(fn) + ": unexpected argument at position "
                         + std::to_string(i + 1) + ".",
@@ -65,12 +67,12 @@ static StftOptions parseSharedStftOptions(Span<const Value> args,
 
 // Per-fn registration adapters share the (x, f[, Name, Value]) argument shape.
 #define NUMKIT_SPEC_REG(FN)                                                          \
-    void FN##_reg(Span<const Value> args, size_t /*nargout*/,                    \
-                  Span<Value> outs, CallContext &ctx)                            \
+    void FN##_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/,                    \
+                  keel::MutArrayRef<Value> outs, CallContext &ctx)                            \
     {                                                                            \
         argcheck::checkNargin(args.size(), 2, #FN);                              \
         StftOptions stft = parseSharedStftOptions(args, 2, #FN);                 \
-        outs[0] = FN(args[0], args[1], stft, ctx.engine->resource());            \
+        outs[0] = FN(args[0], args[1], stft, ctx.engine->allocator());            \
     }
 
 NUMKIT_SPEC_REG(spectralCentroid)
@@ -85,12 +87,12 @@ NUMKIT_SPEC_REG(spectralSkewness)
 
 #undef NUMKIT_SPEC_REG
 
-void spectralRolloffPoint_reg(Span<const Value> args, size_t /*nargout*/,
-                              Span<Value> outs, CallContext &ctx)
+void spectralRolloffPoint_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/,
+                              keel::MutArrayRef<Value> outs, CallContext &ctx)
 {
     argcheck::checkNargin(args.size(), 2, "spectralRolloffPoint");
     double pct = 0.95;
-    std::size_t nvStart = 2;
+    keel::usize nvStart = 2;
     if (args.size() >= 3 && !args[2].isChar() && !args[2].isString()) {
         pct = args[2].toScalar();
         nvStart = 3;
@@ -98,11 +100,11 @@ void spectralRolloffPoint_reg(Span<const Value> args, size_t /*nargout*/,
     StftOptions stft = parseSharedStftOptions(args, nvStart,
                                               "spectralRolloffPoint", &pct);
     outs[0] = spectralRolloffPoint(args[0], args[1], pct, stft,
-                                   ctx.engine->resource());
+                                   ctx.engine->allocator());
 }
 
-void spectralFlux_reg(Span<const Value> args, size_t nargout,
-                      Span<Value> outs, CallContext &ctx)
+void spectralFlux_reg(keel::ArrayRef<Value> args, keel::usize nargout,
+                      keel::MutArrayRef<Value> outs, CallContext &ctx)
 {
     // Probed R2025b signature: spectralFlux(x, f[, initialCondition]
     // [, Name=Value]) with NormType ∈ {1, 2} (default 2), SpectrumType
@@ -110,7 +112,7 @@ void spectralFlux_reg(Span<const Value> args, size_t nargout,
     // and the four STFT-reshaping options Window / OverlapLength /
     // FFTLength / Range (validated inside the shared computeStft port).
     argcheck::checkNargin(args.size(), 2, "spectralFlux");
-    auto *mr = ctx.engine->resource();
+    auto *mr = ctx.engine->allocator();
     const Value &x = args[0];
     const Value &f = args[1];
 
@@ -118,7 +120,7 @@ void spectralFlux_reg(Span<const Value> args, size_t nargout,
     double p = 2.0;
     bool magnitude = false;
     StftOptions stft;
-    for (std::size_t i = 2; i < args.size();) {
+    for (keel::usize i = 2; i < args.size();) {
         if (args[i].isChar() || args[i].isString()) {
             std::string name = args[i].toString();
             for (auto &c : name)

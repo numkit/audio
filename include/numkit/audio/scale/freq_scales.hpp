@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <memory_resource>
+#include <keel/memory.h>
 #include <numkit/value/value.hpp>
 
 namespace numkit::audio {
@@ -25,14 +25,14 @@ namespace numkit::audio {
 /// @return    Same-shape DOUBLE array of mel-frequency values.
 ///
 /// @see mel2hz
-Value hz2mel(const Value &hz, std::pmr::memory_resource *mr = nullptr);
+Value hz2mel(const Value &hz, keel::Allocator *mr = nullptr);
 
 /// Mel → Hertz (inverse of `hz2mel`).
 ///
 /// @param mel  Mel-frequency values.
 /// @param mr   Memory resource (nullptr → process default).
 /// @return     Same-shape DOUBLE array of Hz values.
-Value mel2hz(const Value &mel, std::pmr::memory_resource *mr = nullptr);
+Value mel2hz(const Value &mel, keel::Allocator *mr = nullptr);
 
 /// Hertz → Bark (Traunmüller 1990 with low/high-frequency corrections).
 ///
@@ -41,7 +41,7 @@ Value mel2hz(const Value &mel, std::pmr::memory_resource *mr = nullptr);
 /// @return    Same-shape DOUBLE array.
 ///
 /// @see bark2hz
-Value hz2bark(const Value &hz, std::pmr::memory_resource *mr = nullptr);
+Value hz2bark(const Value &hz, keel::Allocator *mr = nullptr);
 
 /// @brief Bark → Hertz (inverse of @ref hz2bark).
 ///
@@ -49,7 +49,7 @@ Value hz2bark(const Value &hz, std::pmr::memory_resource *mr = nullptr);
 /// @param mr    Memory resource (nullptr → process default).
 /// @return      Same-shape DOUBLE array of Hz values.
 /// @see hz2bark
-Value bark2hz(const Value &bark, std::pmr::memory_resource *mr = nullptr);
+Value bark2hz(const Value &bark, keel::Allocator *mr = nullptr);
 
 /// Hertz → ERB (Glasberg & Moore 1990).
 ///
@@ -60,7 +60,7 @@ Value bark2hz(const Value &bark, std::pmr::memory_resource *mr = nullptr);
 /// @return    Same-shape DOUBLE array.
 ///
 /// @see erb2hz
-Value hz2erb(const Value &hz, std::pmr::memory_resource *mr = nullptr);
+Value hz2erb(const Value &hz, keel::Allocator *mr = nullptr);
 
 /// @brief ERB → Hertz (inverse of @ref hz2erb).
 ///
@@ -68,7 +68,7 @@ Value hz2erb(const Value &hz, std::pmr::memory_resource *mr = nullptr);
 /// @param mr   Memory resource (nullptr → process default).
 /// @return     Same-shape DOUBLE array of Hz values.
 /// @see hz2erb
-Value erb2hz(const Value &erb, std::pmr::memory_resource *mr = nullptr);
+Value erb2hz(const Value &erb, keel::Allocator *mr = nullptr);
 
 /// Phon → Sone — loudness-level to loudness conversion.
 ///
@@ -84,7 +84,7 @@ Value erb2hz(const Value &erb, std::pmr::memory_resource *mr = nullptr);
 /// @see sone2phon
 Value phon2sone(const Value &phon,
                 bool standardIs532_2 = false,
-                std::pmr::memory_resource *mr = nullptr);
+                keel::Allocator *mr = nullptr);
 
 /// @brief Sone → Phon — loudness to loudness-level conversion.
 ///
@@ -97,7 +97,7 @@ Value phon2sone(const Value &phon,
 /// @see phon2sone
 Value sone2phon(const Value &sone,
                 bool standardIs532_2 = false,
-                std::pmr::memory_resource *mr = nullptr);
+                keel::Allocator *mr = nullptr);
 
 
 /// @}

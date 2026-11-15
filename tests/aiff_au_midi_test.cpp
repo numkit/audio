@@ -1,4 +1,5 @@
 // toolboxes/audio/tests/aiff_au_midi_test.cpp
+#include <keel/core.h>
 #include <gtest/gtest.h>
 #include "../src/io/aiff_codec.hpp"
 #include "../src/io/au_codec.hpp"
@@ -10,12 +11,12 @@ using namespace numkit;
 using namespace numkit::audio;
 
 TEST(AiffCodecTest, Pcm16And24RoundTrip) {
-    const size_t N = 400;
+    const keel::usize N = 400;
     const double Fs = 48000.0;
 
     Value y = Value::matrix(N, 2, ValueType::DOUBLE);
     double *p = y.doubleDataMut();
-    for (size_t i = 0; i < N; ++i) {
+    for (keel::usize i = 0; i < N; ++i) {
         p[0 * N + i] = 0.7 * std::sin(2.0 * 3.1415926535 * 300.0 * i / Fs);
         p[1 * N + i] = 0.4 * std::sin(2.0 * 3.1415926535 * 600.0 * i / Fs);
     }
@@ -38,19 +39,19 @@ TEST(AiffCodecTest, Pcm16And24RoundTrip) {
     EXPECT_EQ(decoded.totalSamples, N);
 
     const double *dec = decoded.y.doubleData();
-    for (size_t i = 0; i < N; ++i) {
+    for (keel::usize i = 0; i < N; ++i) {
         EXPECT_NEAR(dec[0 * N + i], p[0 * N + i], 0.001);
         EXPECT_NEAR(dec[1 * N + i], p[1 * N + i], 0.001);
     }
 }
 
 TEST(AuCodecTest, LinearPcmAndMuLawRoundTrip) {
-    const size_t N = 300;
+    const keel::usize N = 300;
     const double Fs = 16000.0;
 
     Value y = Value::matrix(N, 1, ValueType::DOUBLE);
     double *p = y.doubleDataMut();
-    for (size_t i = 0; i < N; ++i) {
+    for (keel::usize i = 0; i < N; ++i) {
         p[i] = 0.6 * std::sin(2.0 * 3.1415926535 * 1000.0 * i / Fs);
     }
 
@@ -71,7 +72,7 @@ TEST(AuCodecTest, LinearPcmAndMuLawRoundTrip) {
         EXPECT_DOUBLE_EQ(decoded.sampleRate, 16000.0);
 
         const double *dec = decoded.y.doubleData();
-        for (size_t i = 0; i < N; ++i) {
+        for (keel::usize i = 0; i < N; ++i) {
             EXPECT_NEAR(dec[i], p[i], 0.001);
         }
     }
@@ -82,7 +83,7 @@ TEST(MidiCodecTest, NoteMatrixRoundTrip) {
     // [Track, Channel, Note, Velocity, StartTime, EndTime]
     Value notes = Value::matrix(3, 6, ValueType::DOUBLE);
     double *p = notes.doubleDataMut();
-    const size_t N = 3;
+    const keel::usize N = 3;
 
     // Track
     p[0 * N + 0] = 1; p[0 * N + 1] = 1; p[0 * N + 2] = 1;
@@ -111,7 +112,7 @@ TEST(MidiCodecTest, NoteMatrixRoundTrip) {
     EXPECT_EQ(readNotes.dims().cols(), 6u);
 
     const double *rn = readNotes.doubleData();
-    for (size_t i = 0; i < 3; ++i) {
+    for (keel::usize i = 0; i < 3; ++i) {
         EXPECT_EQ(rn[2 * N + i], p[2 * N + i]); // Note number matches exactly
         EXPECT_EQ(rn[3 * N + i], p[3 * N + i]); // Velocity matches exactly
         EXPECT_NEAR(rn[4 * N + i], p[4 * N + i], 0.01); // Start time

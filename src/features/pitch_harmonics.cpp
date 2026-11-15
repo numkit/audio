@@ -24,6 +24,12 @@
 //     sign change of R[k] + Smith's parabolic peak interpolation. Tiny
 //     ~2e-4 mean diff vs MATLAB on pure tones is FP-ordering noise.
 
+#include <keel/core.h>
+#include <keel/memory.h>
+#include <keel/arena.h>
+#include <keel/array.h>
+#include <keel/complex.h>
+#include <keel/math.h>
 #include <numkit/audio/features/pitch_harmonics.hpp>
 #include <numkit/signal/transforms/fft.hpp>
 #include <numkit/signal/spectral_analysis/signal_modeling.hpp>  // lpc
@@ -36,7 +42,6 @@
 #include <numkit/value/argcheck.hpp>
 #include <numkit/value/value.hpp>
 #include <numkit/value/error.hpp>
-#include <numkit/value/scratch.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -52,41 +57,41 @@ namespace numkit::audio {
 namespace {
 
 // Periodic Hamming window: w[n] = 0.54 - 0.46 * cos(2π·n/N).
-void hammingPeriodic(double *w, size_t N)
+void hammingPeriodic(double *w, keel::usize N)
 {
-    for (size_t n = 0; n < N; ++n)
+    for (keel::usize n = 0; n < N; ++n)
         w[n] = 0.54 - 0.46 * std::cos(2.0 * M_PI * static_cast<double>(n)
                                         / static_cast<double>(N));
 }
 
 // Compute autocorrelation R[k] = Σ x[n]·x[n+k] for k = 0..maxLag-1.
 // O(L * maxLag) — adequate for typical winLen ≤ 1024 and maxLag ≤ 320.
-void autocorr(const double *x, size_t L, size_t maxLag, double *R)
+void autocorr(const double *x, keel::usize L, keel::usize maxLag, double *R)
 {
-    for (size_t k = 0; k < maxLag; ++k) {
+    for (keel::usize k = 0; k < maxLag; ++k) {
         double s = 0.0;
-        for (size_t n = 0; n + k < L; ++n) s += x[n] * x[n + k];
+        for (keel::usize n = 0; n + k < L; ++n) s += x[n] * x[n + k];
         R[k] = s;
     }
 }
 
 // Partial power Σ x[n+k]² for n = 0..L-k-1, k = 0..maxLag-1.
-void partialPower(const double *x, size_t L, size_t maxLag, double *P)
+void partialPower(const double *x, keel::usize L, keel::usize maxLag, double *P)
 {
-    for (size_t k = 0; k < maxLag; ++k) {
+    for (keel::usize k = 0; k < maxLag; ++k) {
         double s = 0.0;
-        for (size_t n = 0; n + k < L; ++n) s += x[n + k] * x[n + k];
+        for (keel::usize n = 0; n + k < L; ++n) s += x[n + k] * x[n + k];
         P[k] = s;
     }
 }
 
-struct FrameSpec { size_t winLen, overlap, hop, numFrames; };
+struct FrameSpec { keel::usize winLen, overlap, hop, numFrames; };
 
-FrameSpec frameSpec(size_t N, double fs, double winSec, double ovSec)
+FrameSpec frameSpec(keel::usize N, double fs, double winSec, double ovSec)
 {
     FrameSpec s;
-    s.winLen  = static_cast<size_t>(std::round(fs * winSec));
-    s.overlap = static_cast<size_t>(std::round(fs * ovSec));
+    s.winLen  = static_cast<keel::usize>(std::round(fs * winSec));
+    s.overlap = static_cast<keel::usize>(std::round(fs * ovSec));
     if (s.overlap >= s.winLen && s.winLen > 0) s.overlap = s.winLen - 1;
     s.hop = (s.winLen > s.overlap) ? (s.winLen - s.overlap) : 1;
     s.numFrames = (N >= s.winLen) ? ((N - s.winLen) / s.hop + 1) : 0;
@@ -94,10 +99,10 @@ FrameSpec frameSpec(size_t N, double fs, double winSec, double ovSec)
 }
 
 // 2^nextpow2(x) — smallest power of 2 >= x.
-size_t nextPow2(size_t x)
+keel::usize nextPow2(keel::usize x)
 {
     if (x <= 1) return 1;
-    size_t p = 1;
+    keel::usize p = 1;
     while (p < x) p <<= 1;
     return p;
 }
@@ -137,63 +142,63 @@ void harmonicRatio_argcheck(const Value &x, double fs)
 // corresponds to a period of (q+1) samples; hence f0 = fs/(q+1) and the
 // search band is shifted down by one index.
 Value pitchCEP(const Value &x, double fs, double minF, double maxF,
-               std::pmr::memory_resource *mr)
+               keel::Allocator *mr)
 {
     pitch_argcheck(x, fs, minF, maxF);
     // Framing — MATLAB pitch defaults: 52 ms window, 42 ms overlap.
-    const std::size_t N = x.numel();
+    const keel::usize N = x.numel();
     const FrameSpec fr = frameSpec(N, fs, 0.052, 0.042);
-    const std::size_t winLen    = fr.winLen;
-    const std::size_t hop       = fr.hop;
-    const std::size_t numFrames = fr.numFrames;
+    const keel::usize winLen    = fr.winLen;
+    const keel::usize hop       = fr.hop;
+    const keel::usize numFrames = fr.numFrames;
     if (numFrames == 0 || winLen == 0)
         return Value::matrix(0, 0, ValueType::DOUBLE, mr);
 
     // Zero-pad to a power of two >= 2*winLen-1 (anti-aliasing the cepstrum).
-    const std::size_t NFFT = nextPow2(2 * winLen - 1);
+    const keel::usize NFFT = nextPow2(2 * winLen - 1);
 
-    ScratchArena arena(mr);
-    ScratchVec<double> win(winLen, &arena);
+    keel::ArenaTemp arena = keel::get_scratch(mr);
+    keel::Array<double> win(winLen, arena.allocator());
     hammingPeriodic(win.data(), winLen);
 
     // Column f holds the f-th windowed, zero-padded frame.
-    Value frames = Value::matrix(NFFT, numFrames, ValueType::DOUBLE, &arena);
+    Value frames = Value::matrix(NFFT, numFrames, ValueType::DOUBLE, arena.allocator());
     double *fd = frames.doubleDataMut();
     std::fill(fd, fd + NFFT * numFrames, 0.0);
-    for (std::size_t f = 0; f < numFrames; ++f) {
-        const std::size_t base = f * hop;
+    for (keel::usize f = 0; f < numFrames; ++f) {
+        const keel::usize base = f * hop;
         double *col = fd + f * NFFT;
-        for (std::size_t n = 0; n < winLen; ++n) {
-            const std::size_t idx = base + n;
+        for (keel::usize n = 0; n < winLen; ++n) {
+            const keel::usize idx = base + n;
             col[n] = (idx < N) ? x.elemAsDouble(idx) * win[n] : 0.0;
         }
     }
 
     // Forward DFT of every frame, then the log power spectrum.
-    Value Y = signal::fft(frames, static_cast<int>(NFFT), 1, &arena);
-    Value logspec = Value::matrix(NFFT, numFrames, ValueType::DOUBLE, &arena);
+    Value Y = signal::fft(frames, static_cast<int>(NFFT), 1, arena.allocator());
+    Value logspec = Value::matrix(NFFT, numFrames, ValueType::DOUBLE, arena.allocator());
     double *ld = logspec.doubleDataMut();
     const double kLogFloor = std::log(std::numeric_limits<double>::min());
-    const std::size_t total = NFFT * numFrames;
+    const keel::usize total = NFFT * numFrames;
     if (Y.type() == ValueType::COMPLEX) {
-        const Complex *yd = Y.complexData();
-        for (std::size_t i = 0; i < total; ++i) {
+        const keel::c64 *yd = Y.complexData();
+        for (keel::usize i = 0; i < total; ++i) {
             const double re = yd[i].real(), im = yd[i].imag();
             const double p2 = re * re + im * im;
             ld[i] = (p2 > 0.0) ? std::log(p2) : kLogFloor;
         }
     } else {
         const double *yd = Y.doubleData();
-        for (std::size_t i = 0; i < total; ++i) {
+        for (keel::usize i = 0; i < total; ++i) {
             const double p2 = yd[i] * yd[i];
             ld[i] = (p2 > 0.0) ? std::log(p2) : kLogFloor;
         }
     }
 
     // Real cepstrum c[q] = real(IDFT(logspec)).
-    Value C = signal::ifft(logspec, static_cast<int>(NFFT), 1, &arena);
+    Value C = signal::ifft(logspec, static_cast<int>(NFFT), 1, arena.allocator());
     const bool cIsComplex = (C.type() == ValueType::COMPLEX);
-    const Complex *cc = cIsComplex ? C.complexData() : nullptr;
+    const keel::c64 *cc = cIsComplex ? C.complexData() : nullptr;
     const double  *cr = cIsComplex ? nullptr        : C.doubleData();
 
     // Quefrency search band. A period of p samples gives f0 = fs/p, so the
@@ -212,13 +217,13 @@ Value pitchCEP(const Value &x, double fs, double minF, double maxF,
     if (qHi > static_cast<long>(NFFT) - 1) qHi = static_cast<long>(NFFT) - 1;
     const bool rangeValid = (qLo <= qHi);
 
-    for (std::size_t f = 0; f < numFrames; ++f) {
+    for (keel::usize f = 0; f < numFrames; ++f) {
         if (!rangeValid) { od[f] = 0.0; continue; }
-        const std::size_t colOff = f * NFFT;
+        const keel::usize colOff = f * NFFT;
         long   qBest = qLo;
         double cBest = -std::numeric_limits<double>::infinity();
         for (long q = qLo; q <= qHi; ++q) {
-            const std::size_t idx = colOff + static_cast<std::size_t>(q);
+            const keel::usize idx = colOff + static_cast<keel::usize>(q);
             const double cq = cIsComplex ? cc[idx].real() : cr[idx];
             if (cq > cBest) { cBest = cq; qBest = q; }
         }
@@ -255,7 +260,7 @@ Value pitchCEP(const Value &x, double fs, double minF, double maxF,
 // uses a different comb formula, so this is not bit-matched to MATLAB.
 // ──────────────────────────────────────────────────────────────────────
 Value pitchPEF(const Value &x, double fs, double minF, double maxF,
-               std::pmr::memory_resource *mr)
+               keel::Allocator *mr)
 {
     pitch_argcheck(x, fs, minF, maxF);
     // PEF algorithm constants (paper §2.1, §3, §2).
@@ -264,59 +269,59 @@ Value pitchPEF(const Value &x, double fs, double minF, double maxF,
     const double     kDelta = std::log(1.0058); // log-grid step Δ (0.58 %)
 
     // ── 1. Framing (nk default pitch framing — one f0 per frame). ──
-    const size_t N = x.numel();
+    const keel::usize N = x.numel();
     const FrameSpec fs_spec = frameSpec(N, fs, 0.052, 0.042);
-    const size_t winLen   = fs_spec.winLen;
-    const size_t hop      = fs_spec.hop;
-    const size_t numFrames = fs_spec.numFrames;
+    const keel::usize winLen   = fs_spec.winLen;
+    const keel::usize hop      = fs_spec.hop;
+    const keel::usize numFrames = fs_spec.numFrames;
 
     if (numFrames == 0 || winLen == 0)
         return Value::matrix(0, 0, ValueType::DOUBLE, mr);
 
     // ── 2. Zero-pad length: NFFT = nextPow2(4 · winLen). ───────────────
-    const size_t NFFT = nextPow2(4 * winLen);
-    const size_t half = NFFT / 2;            // P spans bins 0 .. NFFT/2
+    const keel::usize NFFT = nextPow2(4 * winLen);
+    const keel::usize half = NFFT / 2;            // P spans bins 0 .. NFFT/2
 
-    ScratchArena arena(mr);
+    keel::ArenaTemp arena = keel::get_scratch(mr);
 
     // Periodic Hamming window over the analysis window length.
-    ScratchVec<double> win(winLen, &arena);
+    keel::Array<double> win(winLen, arena.allocator());
     hammingPeriodic(win.data(), winLen);
 
     // Windowed-and-zero-padded frame matrix (NFFT × numFrames), column-
     // major: frame f occupies column f. signal::fft along dim = 1 then
     // transforms every frame in one call.
-    Value frames = Value::matrix(NFFT, numFrames, ValueType::DOUBLE, &arena);
+    Value frames = Value::matrix(NFFT, numFrames, ValueType::DOUBLE, arena.allocator());
     double *fd = frames.doubleDataMut();
     std::fill(fd, fd + NFFT * numFrames, 0.0);   // zero-pad region
-    for (size_t f = 0; f < numFrames; ++f) {
-        const size_t base   = f * NFFT;       // column start
-        const size_t offset = f * hop;        // frame start sample in x
-        for (size_t i = 0; i < winLen; ++i)
+    for (keel::usize f = 0; f < numFrames; ++f) {
+        const keel::usize base   = f * NFFT;       // column start
+        const keel::usize offset = f * hop;        // frame start sample in x
+        for (keel::usize i = 0; i < winLen; ++i)
             fd[base + i] = x.elemAsDouble(offset + i) * win[i];
     }
 
     // ── 2. (cont.) DFT and one-sided power spectrum P[k] = |Y[k]|². ────
-    Value spec = signal::fft(frames, static_cast<int>(NFFT), 1, &arena);
+    Value spec = signal::fft(frames, static_cast<int>(NFFT), 1, arena.allocator());
 
-    const size_t pbins = half + 1;
-    ScratchVec<double> P(pbins * numFrames, &arena);
+    const keel::usize pbins = half + 1;
+    keel::Array<double> P(pbins * numFrames, arena.allocator());
     if (spec.type() == ValueType::COMPLEX) {
-        const Complex *yd = spec.complexData();
-        for (size_t f = 0; f < numFrames; ++f) {
-            const size_t ybase = f * NFFT;
-            const size_t pbase = f * pbins;
-            for (size_t k = 0; k <= half; ++k) {
-                const Complex c = yd[ybase + k];
+        const keel::c64 *yd = spec.complexData();
+        for (keel::usize f = 0; f < numFrames; ++f) {
+            const keel::usize ybase = f * NFFT;
+            const keel::usize pbase = f * pbins;
+            for (keel::usize k = 0; k <= half; ++k) {
+                const keel::c64 c = yd[ybase + k];
                 P[pbase + k] = c.real() * c.real() + c.imag() * c.imag();
             }
         }
     } else {
         const double *yd = spec.doubleData();
-        for (size_t f = 0; f < numFrames; ++f) {
-            const size_t ybase = f * NFFT;
-            const size_t pbase = f * pbins;
-            for (size_t k = 0; k <= half; ++k) {
+        for (keel::usize f = 0; f < numFrames; ++f) {
+            const keel::usize ybase = f * NFFT;
+            const keel::usize pbase = f * pbins;
+            for (keel::usize k = 0; k <= half; ++k) {
                 const double r = yd[ybase + k];
                 P[pbase + k] = r * r;
             }
@@ -330,24 +335,24 @@ Value pitchPEF(const Value &x, double fs, double minF, double maxF,
     //    j ∈ [ceil(ln(0.5)/Δ), floor(ln(K+0.5)/Δ)], q'_j = j·Δ. ─────────
     const long jLo = static_cast<long>(std::ceil (std::log(0.5)      / kDelta));
     const long jHi = static_cast<long>(std::floor(std::log(kK + 0.5) / kDelta));
-    const size_t taps = (jHi >= jLo)
-                        ? static_cast<size_t>(jHi - jLo + 1)
+    const keel::usize taps = (jHi >= jLo)
+                        ? static_cast<keel::usize>(jHi - jLo + 1)
                         : 0;
 
     if (taps == 0) {
         Value out = Value::matrix(numFrames, 1, ValueType::DOUBLE, mr);
         double *od = out.doubleDataMut();
         const double mid = std::min(std::max(0.5 * (minF + maxF), minF), maxF);
-        for (size_t f = 0; f < numFrames; ++f)
+        for (keel::usize f = 0; f < numFrames; ++f)
             od[f] = mid;
         return out;
     }
 
     // q'_j and h_j = β − g_j, g_j = ln(γ − cos(2π·e^{q'_j})), β = mean(g).
-    ScratchVec<double> rTap(taps, &arena);    // e^{q'_j}  (tap freq ratio)
-    ScratchVec<double> gTap(taps, &arena);    // g_j
+    keel::Array<double> rTap(taps, arena.allocator());    // e^{q'_j}  (tap freq ratio)
+    keel::Array<double> gTap(taps, arena.allocator());    // g_j
     double gSum = 0.0;
-    for (size_t t = 0; t < taps; ++t) {
+    for (keel::usize t = 0; t < taps; ++t) {
         const double q = static_cast<double>(jLo + static_cast<long>(t)) * kDelta;
         const double r = std::exp(q);
         const double g = std::log(kGamma - std::cos(2.0 * M_PI * r));
@@ -356,8 +361,8 @@ Value pitchPEF(const Value &x, double fs, double minF, double maxF,
         gSum   += g;
     }
     const double beta = gSum / static_cast<double>(taps);
-    ScratchVec<double> hTap(taps, &arena);    // h_j = β − g_j
-    for (size_t t = 0; t < taps; ++t)
+    keel::Array<double> hTap(taps, arena.allocator());    // h_j = β − g_j
+    for (keel::usize t = 0; t < taps; ++t)
         hTap[t] = beta - gTap[t];
 
     // ── Candidate log-frequencies q0 = m·Δ, q0 ∈ [ln(minF), ln(maxF)]. ─
@@ -370,7 +375,7 @@ Value pitchPEF(const Value &x, double fs, double minF, double maxF,
     double *od = out.doubleDataMut();
 
     // ── Score every candidate against every frame's spectrum. ─────────
-    for (size_t f = 0; f < numFrames; ++f) {
+    for (keel::usize f = 0; f < numFrames; ++f) {
         const double *Pf = &P[f * pbins];     // this frame's power spectrum
 
         double bestScore = -std::numeric_limits<double>::infinity();
@@ -381,18 +386,18 @@ Value pitchPEF(const Value &x, double fs, double minF, double maxF,
 
             // score(f0) = Σ_j h_j · P_interp(f0 · e^{q'_j}).
             double score = 0.0;
-            for (size_t t = 0; t < taps; ++t) {
+            for (keel::usize t = 0; t < taps; ++t) {
                 const double ftap = f0 * rTap[t];   // linear freq of tap j
 
                 double pVal = 0.0;
                 if (ftap >= 0.0 && ftap <= 0.5 * fs) {
                     const double pos = ftap / df;   // fractional bin index
                     const long   k0  = static_cast<long>(std::floor(pos));
-                    if (k0 >= 0 && static_cast<size_t>(k0) < half) {
+                    if (k0 >= 0 && static_cast<keel::usize>(k0) < half) {
                         const double frac = pos - static_cast<double>(k0);
                         pVal = Pf[k0] * (1.0 - frac) + Pf[k0 + 1] * frac;
                     } else if (k0 >= 0 &&
-                               static_cast<size_t>(k0) == half) {
+                               static_cast<keel::usize>(k0) == half) {
                         pVal = Pf[half];
                     }
                 }
@@ -436,7 +441,7 @@ Value pitchPEF(const Value &x, double fs, double minF, double maxF,
 // Compatibility: MATLAB's LHS reports f0 from a 1-based bin index, so a
 // harmonic-sum peak at 0-based bin j is reported as f0 = j + 1 Hz.
 Value pitchLHS(const Value &x, double fs, double minF, double maxF,
-               std::pmr::memory_resource *mr)
+               keel::Allocator *mr)
 {
     pitch_argcheck(x, fs, minF, maxF);
     // --- Method constants (spec §3) -----------------------------------------
@@ -445,11 +450,11 @@ Value pitchLHS(const Value &x, double fs, double minF, double maxF,
     constexpr double kOverlapS  = 0.042; // analysis overlap (s)
 
     // --- Framing (spec §3) --------------------------------------------------
-    const size_t N  = x.numel();
+    const keel::usize N  = x.numel();
     const FrameSpec fs_spec = frameSpec(N, fs, kWinSec, kOverlapS);
-    const size_t winLen   = fs_spec.winLen;
-    const size_t hop      = fs_spec.hop;
-    const size_t numFrames = fs_spec.numFrames;
+    const keel::usize winLen   = fs_spec.winLen;
+    const keel::usize hop      = fs_spec.hop;
+    const keel::usize numFrames = fs_spec.numFrames;
 
     if (numFrames == 0)
         return Value::matrix(0, 0, ValueType::DOUBLE, mr);
@@ -480,30 +485,30 @@ Value pitchLHS(const Value &x, double fs, double minF, double maxF,
         jHiRaw = jMaxByCoverage;
     if (jHiRaw < jLoRaw)
         return Value::matrix(0, 0, ValueType::DOUBLE, mr);
-    const size_t jLo = static_cast<size_t>(jLoRaw);
-    const size_t jHi = static_cast<size_t>(jHiRaw);
+    const keel::usize jLo = static_cast<keel::usize>(jLoRaw);
+    const keel::usize jHi = static_cast<keel::usize>(jHiRaw);
 
     // --- Scratch (PMR HARD RULE: ScratchArena + ScratchVec only) -----------
-    ScratchArena arena(mr);
+    keel::ArenaTemp arena = keel::get_scratch(mr);
 
     // Periodic Hamming analysis window, computed once.
-    ScratchVec<double> window(winLen, &arena);
+    keel::Array<double> window(winLen, arena.allocator());
     hammingPeriodic(window.data(), winLen);
 
     // Batched real input: NFFT rows × numFrames columns. Each column holds
     // one windowed, zero-padded frame; signal::fft(..., NFFT, 1, ...) then
     // transforms every column in a single call.
-    Value frames = Value::matrix(static_cast<size_t>(NFFT), numFrames,
-                                 ValueType::DOUBLE, &arena);
+    Value frames = Value::matrix(static_cast<keel::usize>(NFFT), numFrames,
+                                 ValueType::DOUBLE, arena.allocator());
     double *col0 = frames.doubleDataMut(); // column-major writable buffer
 
-    for (size_t f = 0; f < numFrames; ++f) {
-        double *col = col0 + f * static_cast<size_t>(NFFT);
-        const size_t base = f * hop;
-        for (size_t n = 0; n < static_cast<size_t>(NFFT); ++n) {
+    for (keel::usize f = 0; f < numFrames; ++f) {
+        double *col = col0 + f * static_cast<keel::usize>(NFFT);
+        const keel::usize base = f * hop;
+        for (keel::usize n = 0; n < static_cast<keel::usize>(NFFT); ++n) {
             double s = 0.0;
             if (n < winLen) {
-                const size_t idx = base + n;
+                const keel::usize idx = base + n;
                 if (idx < N)
                     s = x.elemAsDouble(idx) * window[n];
             }
@@ -512,37 +517,37 @@ Value pitchLHS(const Value &x, double fs, double minF, double maxF,
     }
 
     // --- Forward DFT of every frame (dim == 1 → transform each column) ------
-    Value spec = signal::fft(frames, NFFT, 1, &arena);
-    const Complex *Y = spec.complexData();
+    Value spec = signal::fft(frames, NFFT, 1, arena.allocator());
+    const keel::c64 *Y = spec.complexData();
 
     // log-magnitude floor: smallest positive normal double.
     const double kMagFloor = std::log(std::numeric_limits<double>::min());
 
     // Bins of the log-magnitude spectrum we actually need: 0 .. K-1.
-    const size_t Kbins = static_cast<size_t>(K);
+    const keel::usize Kbins = static_cast<keel::usize>(K);
 
     // --- Per-frame harmonic-sum estimation ---------------------------------
     Value out = Value::matrix(numFrames, 1, ValueType::DOUBLE, mr);
     double *outData = out.doubleDataMut();
 
-    ScratchVec<double> logMag(Kbins, &arena);  // S[k] for current frame
+    keel::Array<double> logMag(Kbins, arena.allocator());  // S[k] for current frame
 
-    for (size_t f = 0; f < numFrames; ++f) {
-        const Complex *Yf = Y + f * static_cast<size_t>(NFFT);
+    for (keel::usize f = 0; f < numFrames; ++f) {
+        const keel::c64 *Yf = Y + f * static_cast<keel::usize>(NFFT);
 
         // S[k] = log(|Y[k]|), floored at log(min normal double).
-        for (size_t k = 0; k < Kbins; ++k) {
-            const double mag = std::abs(Yf[k]);
+        for (keel::usize k = 0; k < Kbins; ++k) {
+            const double mag = keel::abs(Yf[k]);
             logMag[k] = (mag > 0.0) ? std::log(mag) : kMagFloor;
         }
 
         // domain[j] = Σ_{m=1..H} S[j·m]; pick the maximising bin.
-        size_t bestJ   = jLo;
+        keel::usize bestJ   = jLo;
         double bestSum = -std::numeric_limits<double>::infinity();
-        for (size_t j = jLo; j <= jHi; ++j) {
+        for (keel::usize j = jLo; j <= jHi; ++j) {
             double sum = 0.0;
             for (int m = 1; m <= kH; ++m)
-                sum += logMag[j * static_cast<size_t>(m)];
+                sum += logMag[j * static_cast<keel::usize>(m)];
             if (sum > bestSum) {
                 bestSum = sum;
                 bestJ   = j;
@@ -591,7 +596,7 @@ Value pitchLHS(const Value &x, double fs, double minF, double maxF,
 // replicate MATLAB's SRH pipeline and is not bit-matched to MATLAB.
 // ─────────────────────────────────────────────────────────────────────
 Value pitchSRH(const Value &x, double fs, double minF, double maxF,
-               std::pmr::memory_resource *mr)
+               keel::Allocator *mr)
 {
     pitch_argcheck(x, fs, minF, maxF);
     // ── Method parameters (paper §3.2) ──────────────────────────────
@@ -600,11 +605,11 @@ Value pitchSRH(const Value &x, double fs, double minF, double maxF,
     const     long   nfft      = std::lround(fs);   // 1-Hz bins
 
     // ── Framing — standard pitch framing (52 ms win, 42 ms overlap) ─
-    const size_t N = x.numel();
+    const keel::usize N = x.numel();
     const FrameSpec fr = frameSpec(N, fs, 0.052, 0.042);
-    const size_t winLen    = fr.winLen;
-    const size_t hop       = fr.hop;
-    const size_t numFrames = fr.numFrames;
+    const keel::usize winLen    = fr.winLen;
+    const keel::usize hop       = fr.hop;
+    const keel::usize numFrames = fr.numFrames;
 
     // No frames → MATLAB-style empty result.
     if (numFrames == 0)
@@ -620,11 +625,11 @@ Value pitchSRH(const Value &x, double fs, double minF, double maxF,
         return Value::matrix(numFrames, 1, ValueType::DOUBLE, mr);
 
     // ── Per-call scratch arena (PMR HARD RULE) ──────────────────────
-    ScratchArena arena(mr);
+    keel::ArenaTemp arena = keel::get_scratch(mr);
 
     // Periodic Hann window: w[n] = 0.5·(1 − cos(2π·n / N)), n = 0..N−1.
-    ScratchVec<double> hann(winLen, &arena);
-    for (size_t n = 0; n < winLen; ++n)
+    keel::Array<double> hann(winLen, arena.allocator());
+    for (keel::usize n = 0; n < winLen; ++n)
         hann[n] = 0.5 * (1.0 - std::cos(2.0 * M_PI
                          * static_cast<double>(n)
                          / static_cast<double>(winLen)));
@@ -632,21 +637,21 @@ Value pitchSRH(const Value &x, double fs, double minF, double maxF,
     // Residual amplitude spectrum E for every frame, packed row-major:
     // E[frame * nfft + k]. Each E[k] is the magnitude of DFT bin k,
     // indexed directly in Hz because every bin spans 1 Hz.
-    const size_t specLen = static_cast<size_t>(nfft);
-    ScratchVec<double> E(numFrames * specLen, &arena);
+    const keel::usize specLen = static_cast<keel::usize>(nfft);
+    keel::Array<double> E(numFrames * specLen, arena.allocator());
 
     // Per-frame buffers reused across the loop.
-    ScratchVec<double> windowed(winLen, &arena);
+    keel::Array<double> windowed(winLen, arena.allocator());
 
-    for (size_t f = 0; f < numFrames; ++f)
+    for (keel::usize f = 0; f < numFrames; ++f)
     {
-        const size_t base = f * hop;
+        const keel::usize base = f * hop;
 
         // Window the frame (zero-pad implicitly if the frame runs past
         // the end of the signal — defensive, framing usually prevents).
-        for (size_t n = 0; n < winLen; ++n)
+        for (keel::usize n = 0; n < winLen; ++n)
         {
-            const size_t idx = base + n;
+            const keel::usize idx = base + n;
             const double s   = (idx < N) ? x.elemAsDouble(idx) : 0.0;
             windowed[n]      = s * hann[n];
         }
@@ -655,41 +660,41 @@ Value pitchSRH(const Value &x, double fs, double minF, double maxF,
         // windowed frame with the LPC polynomial a = [1, a₁, …, a_P]:
         //   r[n] = filter(a, 1, windowedFrame).
         Value winFrame = Value::matrix(winLen, 1, ValueType::DOUBLE,
-                                       &arena);
+                                       arena.allocator());
         std::copy(windowed.data(), windowed.data() + winLen,
                   winFrame.doubleDataMut());
-        auto [lpcA, lpcGain] = signal::lpc(winFrame, kLpcOrder, &arena);
+        auto [lpcA, lpcGain] = signal::lpc(winFrame, kLpcOrder, arena.allocator());
         (void) lpcGain;  // gain not used by SRH
 
-        Value one     = Value::scalar(1.0, &arena);
-        Value residual = signal::filter(lpcA, one, winFrame, &arena);
+        Value one     = Value::scalar(1.0, arena.allocator());
+        Value residual = signal::filter(lpcA, one, winFrame, arena.allocator());
 
         // Amplitude spectrum E[k] = |DFT_NFFT(residual)|. fft zero-pads
         // / truncates the residual to NFFT samples; result is COMPLEX.
         Value spec = signal::fft(residual, static_cast<int>(nfft), 0,
-                                 &arena);
+                                 arena.allocator());
 
         double *Erow = E.data() + f * specLen;
         if (spec.isComplex())
         {
-            const Complex *sd = spec.complexData();
-            for (size_t k = 0; k < specLen; ++k)
-                Erow[k] = std::abs(sd[k]);
+            const keel::c64 *sd = spec.complexData();
+            for (keel::usize k = 0; k < specLen; ++k)
+                Erow[k] = keel::abs(sd[k]);
         }
         else
         {
             // fft downgrades to DOUBLE when the result is real within
             // tolerance — magnitude is then |real value|.
             const double *sd = spec.doubleData();
-            for (size_t k = 0; k < specLen; ++k)
-                Erow[k] = std::abs(sd[k]);
+            for (keel::usize k = 0; k < specLen; ++k)
+                Erow[k] = keel::abs(sd[k]);
         }
     }
 
     // SRH score for candidate fundamental `cand` (Hz) on frame `f`,
     // paper Eq. 1:
     //   SRH(f) = E[f] + Σ_{k=2..Nharm} ( E[k·f] − E[round((k−½)·f)] ).
-    auto srhScore = [&](size_t f, long cand) -> double
+    auto srhScore = [&](keel::usize f, long cand) -> double
     {
         const double *Erow = E.data() + f * specLen;
         double score = Erow[cand];
@@ -709,7 +714,7 @@ Value pitchSRH(const Value &x, double fs, double minF, double maxF,
 
     // Find the candidate in [lo, hi] (Hz, inclusive) maximising SRH for
     // frame f. Returns the integer Hz of the best candidate.
-    auto bestCandidate = [&](size_t f, long lo, long hi) -> long
+    auto bestCandidate = [&](keel::usize f, long lo, long hi) -> long
     {
         long   bestF     = lo;
         double bestScore = -std::numeric_limits<double>::infinity();
@@ -729,9 +734,9 @@ Value pitchSRH(const Value &x, double fs, double minF, double maxF,
     const long loFull = static_cast<long>(std::ceil(minF));
     const long hiFull = static_cast<long>(std::floor(maxF));
 
-    ScratchVec<double> f0(numFrames, &arena);
+    keel::Array<double> f0(numFrames, arena.allocator());
     double sumPass1 = 0.0;
-    for (size_t f = 0; f < numFrames; ++f)
+    for (keel::usize f = 0; f < numFrames; ++f)
     {
         f0[f]     = static_cast<double>(bestCandidate(f, loFull, hiFull));
         sumPass1 += f0[f];
@@ -747,7 +752,7 @@ Value pitchSRH(const Value &x, double fs, double minF, double maxF,
             hiFull, std::lround(2.0 * F0mean));
         if (loRefined <= hiRefined)
         {
-            for (size_t f = 0; f < numFrames; ++f)
+            for (keel::usize f = 0; f < numFrames; ++f)
                 f0[f] = static_cast<double>(
                     bestCandidate(f, loRefined, hiRefined));
         }
@@ -756,7 +761,7 @@ Value pitchSRH(const Value &x, double fs, double minF, double maxF,
     // ── Clip each f0 to [minF, maxF] and emit the result ────────────
     Value result = Value::matrix(numFrames, 1, ValueType::DOUBLE, mr);
     double *out   = result.doubleDataMut();
-    for (size_t f = 0; f < numFrames; ++f)
+    for (keel::usize f = 0; f < numFrames; ++f)
     {
         double v = f0[f];
         if (v < minF) v = minF;
@@ -767,31 +772,31 @@ Value pitchSRH(const Value &x, double fs, double minF, double maxF,
 }
 
 // ── pitch ─────────────────────────────────────────────────────────────
-Value pitch(const Value &x, double fs, double minF, double maxF, std::pmr::memory_resource *mr)
+Value pitch(const Value &x, double fs, double minF, double maxF, keel::Allocator *mr)
 {
     pitch_argcheck(x, fs, minF, maxF);
-    const size_t N = x.numel();
+    const keel::usize N = x.numel();
     const FrameSpec sp = frameSpec(N, fs, 0.052, 0.042);
     Value out = Value::matrix(sp.numFrames, sp.numFrames == 0 ? 0 : 1,
                               ValueType::DOUBLE, mr);
     if (sp.numFrames == 0) return out;
 
-    const size_t minLag = static_cast<size_t>(std::floor(fs / maxF));
-    const size_t maxLag = std::min<size_t>(sp.winLen - 1,
-                                           static_cast<size_t>(std::ceil(fs / minF)));
+    const keel::usize minLag = static_cast<keel::usize>(std::floor(fs / maxF));
+    const keel::usize maxLag = std::min<keel::usize>(sp.winLen - 1,
+                                           static_cast<keel::usize>(std::ceil(fs / minF)));
     if (maxLag <= minLag) return out;
 
-    ScratchArena scratch(mr);
-    ScratchVec<double> win(sp.winLen, &scratch);
+    keel::ArenaTemp scratch = keel::get_scratch(mr);
+    keel::Array<double> win(sp.winLen, scratch.allocator());
     hammingPeriodic(win.data(), sp.winLen);
-    ScratchVec<double> frame(sp.winLen, &scratch);
-    ScratchVec<double> R(maxLag + 1, &scratch);
-    ScratchVec<double> P(maxLag + 1, &scratch);
+    keel::Array<double> frame(sp.winLen, scratch.allocator());
+    keel::Array<double> R(maxLag + 1, scratch.allocator());
+    keel::Array<double> P(maxLag + 1, scratch.allocator());
 
     double *od = out.doubleDataMut();
-    for (size_t f = 0; f < sp.numFrames; ++f) {
-        const size_t start = f * sp.hop;
-        for (size_t i = 0; i < sp.winLen; ++i)
+    for (keel::usize f = 0; f < sp.numFrames; ++f) {
+        const keel::usize start = f * sp.hop;
+        for (keel::usize i = 0; i < sp.winLen; ++i)
             frame[i] = x.elemAsDouble(start + i) * win[i];
         autocorr(frame.data(), sp.winLen, maxLag + 1, R.data());
         partialPower(frame.data(), sp.winLen, maxLag + 1, P.data());
@@ -799,8 +804,8 @@ Value pitch(const Value &x, double fs, double minF, double maxF, std::pmr::memor
         const double total = R[0];
         // NCF: γ[k] = R[k] / sqrt(total * P[k]).
         double bestVal = -1.0;
-        size_t bestLag = minLag;
-        for (size_t k = minLag; k <= maxLag; ++k) {
+        keel::usize bestLag = minLag;
+        for (keel::usize k = minLag; k <= maxLag; ++k) {
             const double denom = std::sqrt(total * P[k]) + 1e-300;
             const double g = R[k] / denom;
             if (g > bestVal) { bestVal = g; bestLag = k; }
@@ -812,7 +817,7 @@ Value pitch(const Value &x, double fs, double minF, double maxF, std::pmr::memor
             const double b = bestVal;
             const double c = R[bestLag + 1] / (std::sqrt(total * P[bestLag + 1]) + 1e-300);
             const double denom = 2.0 * (2.0 * b - c - a);
-            if (std::abs(denom) > 1e-12)
+            if (keel::abs(denom) > 1e-12)
                 lag = static_cast<double>(bestLag) - (a - c) / denom;
         }
         od[f] = (lag > 0.0) ? fs / lag : 0.0;
@@ -827,58 +832,58 @@ Value pitch(const Value &x, double fs, double minF, double maxF, std::pmr::memor
 //   2. Search peak γ in [lowEdge, highEdge=winLen-1].
 //   3. Parabolic interpolation around peak (Smith's quadratic peak).
 //   4. Clip to [0, 1].
-Value harmonicRatio(const Value &x, double fs, std::pmr::memory_resource *mr)
+Value harmonicRatio(const Value &x, double fs, keel::Allocator *mr)
 {
     harmonicRatio_argcheck(x, fs);
-    const size_t N = x.numel();
+    const keel::usize N = x.numel();
     const FrameSpec sp = frameSpec(N, fs, 0.03, 0.02);
     Value out = Value::matrix(sp.numFrames, sp.numFrames == 0 ? 0 : 1,
                               ValueType::DOUBLE, mr);
     if (sp.numFrames == 0) return out;
 
-    const size_t maxLag = sp.winLen - 1;  // highEdge = winLen-1 per MATLAB
+    const keel::usize maxLag = sp.winLen - 1;  // highEdge = winLen-1 per MATLAB
 
-    ScratchArena scratch(mr);
-    ScratchVec<double> win(sp.winLen, &scratch);
+    keel::ArenaTemp scratch = keel::get_scratch(mr);
+    keel::Array<double> win(sp.winLen, scratch.allocator());
     hammingPeriodic(win.data(), sp.winLen);
-    ScratchVec<double> frame(sp.winLen, &scratch);
-    const size_t mLag = std::max<size_t>(maxLag + 1, 2);
-    ScratchVec<double> R(mLag, &scratch);
-    ScratchVec<double> P(mLag, &scratch);
-    ScratchVec<double> gamma(mLag, &scratch);
+    keel::Array<double> frame(sp.winLen, scratch.allocator());
+    const keel::usize mLag = std::max<keel::usize>(maxLag + 1, 2);
+    keel::Array<double> R(mLag, scratch.allocator());
+    keel::Array<double> P(mLag, scratch.allocator());
+    keel::Array<double> gamma(mLag, scratch.allocator());
 
     double *od = out.doubleDataMut();
-    for (size_t f = 0; f < sp.numFrames; ++f) {
-        const size_t start = f * sp.hop;
-        for (size_t i = 0; i < sp.winLen; ++i)
+    for (keel::usize f = 0; f < sp.numFrames; ++f) {
+        const keel::usize start = f * sp.hop;
+        for (keel::usize i = 0; i < sp.winLen; ++i)
             frame[i] = x.elemAsDouble(start + i) * win[i];
         autocorr(frame.data(), sp.winLen, mLag, R.data());
         partialPower(frame.data(), sp.winLen, mLag, P.data());
 
         const double total = R[0];
         // Build full normalized correlation γ[k] = R[k] / sqrt(total*P[k]).
-        for (size_t k = 0; k < mLag; ++k) {
+        for (keel::usize k = 0; k < mLag; ++k) {
             const double denom = std::sqrt(total * P[k])
                                   + std::sqrt(std::numeric_limits<double>::epsilon());
             gamma[k] = R[k] / denom;
         }
         // Auto low-edge: first sign change of R[k] for k >= 1.
         // (i.e. first k where sign(R[k]) != sign(R[k-1])).
-        size_t lowEdge = maxLag;  // sentinel = no sign change → use maxLag
+        keel::usize lowEdge = maxLag;  // sentinel = no sign change → use maxLag
         const double r0 = R[0];
         int prev_sign = (r0 > 0.0) ? 1 : (r0 < 0.0 ? -1 : 0);
-        for (size_t k = 1; k < mLag; ++k) {
+        for (keel::usize k = 1; k < mLag; ++k) {
             const int s = (R[k] > 0.0) ? 1 : (R[k] < 0.0 ? -1 : 0);
             if (s != prev_sign) { lowEdge = k + 1; break; }
         }
         if (lowEdge < 1) lowEdge = 1;
         // Zero the normalized correlation below the low edge (0..lowEdge-1).
-        for (size_t k = 0; k < lowEdge && k < mLag; ++k) gamma[k] = 0.0;
+        for (keel::usize k = 0; k < lowEdge && k < mLag; ++k) gamma[k] = 0.0;
 
         // Find peak.
-        size_t peakIdx = lowEdge;
+        keel::usize peakIdx = lowEdge;
         double peakVal = 0.0;
-        for (size_t k = lowEdge; k < mLag; ++k) {
+        for (keel::usize k = lowEdge; k < mLag; ++k) {
             if (gamma[k] > peakVal) { peakVal = gamma[k]; peakIdx = k; }
         }
         // Parabolic interpolation (Smith's quadratic-peak formula):
@@ -890,7 +895,7 @@ Value harmonicRatio(const Value &x, double fs, std::pmr::memory_resource *mr)
             const double b = gamma[peakIdx];
             const double c = gamma[peakIdx + 1];
             const double denomS = 2.0 * (2.0 * b - c - a);
-            if (std::abs(denomS) > 1e-12) {
+            if (keel::abs(denomS) > 1e-12) {
                 const double s = (c - a) / denomS;
                 refined = b - 0.25 * (a - c) * s;
             }

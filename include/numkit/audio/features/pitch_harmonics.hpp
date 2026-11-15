@@ -4,7 +4,8 @@
 
 #pragma once
 
-#include <memory_resource>
+#include <keel/core.h>
+#include <keel/memory.h>
 #include <numkit/value/value.hpp>
 
 namespace numkit::audio {
@@ -44,9 +45,9 @@ namespace numkit::audio {
 /// @param mr    Memory resource (nullptr → process default).
 /// @return      Column vector of per-frame `f0` in Hz.
 /// @see pitchCEP, pitchPEF, pitchLHS, pitchSRH, harmonicRatio
-Value pitch(const Value &x, double fs,
-            double minF = 50.0, double maxF = 400.0,
-            std::pmr::memory_resource *mr = nullptr);
+Value pitch(const Value &x, keel::f64 fs,
+            keel::f64 minF = 50.0, keel::f64 maxF = 400.0,
+            keel::Allocator *mr = nullptr);
 
 /// @brief Pitch via the cepstrum method (Noll 1967).
 ///
@@ -59,9 +60,9 @@ Value pitch(const Value &x, double fs,
 /// @param mr    Memory resource (nullptr → process default).
 /// @return                Column vector of per-frame `f0` in Hz.
 /// @see pitch
-Value pitchCEP(const Value &x, double fs,
-               double minF = 50.0, double maxF = 400.0,
-               std::pmr::memory_resource *mr = nullptr);
+Value pitchCEP(const Value &x, keel::f64 fs,
+               keel::f64 minF = 50.0, keel::f64 maxF = 400.0,
+               keel::Allocator *mr = nullptr);
 
 /// @brief Pitch Estimation Filter
 /// (Gonzalez & Brookes 2011).
@@ -75,9 +76,9 @@ Value pitchCEP(const Value &x, double fs,
 /// @param mr    Memory resource (nullptr → process default).
 /// @return                Column vector of per-frame `f0` in Hz.
 /// @see pitch
-Value pitchPEF(const Value &x, double fs,
-               double minF = 50.0, double maxF = 400.0,
-               std::pmr::memory_resource *mr = nullptr);
+Value pitchPEF(const Value &x, keel::f64 fs,
+               keel::f64 minF = 50.0, keel::f64 maxF = 400.0,
+               keel::Allocator *mr = nullptr);
 
 /// @brief Log Harmonic Sum / Subharmonic Summation
 /// (Hermes 1988).
@@ -91,9 +92,9 @@ Value pitchPEF(const Value &x, double fs,
 /// @param mr    Memory resource (nullptr → process default).
 /// @return                Column vector of per-frame `f0` in Hz.
 /// @see pitch
-Value pitchLHS(const Value &x, double fs,
-               double minF = 50.0, double maxF = 400.0,
-               std::pmr::memory_resource *mr = nullptr);
+Value pitchLHS(const Value &x, keel::f64 fs,
+               keel::f64 minF = 50.0, keel::f64 maxF = 400.0,
+               keel::Allocator *mr = nullptr);
 
 /// @brief Summation of Residual Harmonics
 /// (Drugman & Alwan 2011).
@@ -108,9 +109,9 @@ Value pitchLHS(const Value &x, double fs,
 /// @param mr    Memory resource (nullptr → process default).
 /// @return                Column vector of per-frame `f0` in Hz.
 /// @see pitch
-Value pitchSRH(const Value &x, double fs,
-               double minF = 50.0, double maxF = 400.0,
-               std::pmr::memory_resource *mr = nullptr);
+Value pitchSRH(const Value &x, keel::f64 fs,
+               keel::f64 minF = 50.0, keel::f64 maxF = 400.0,
+               keel::Allocator *mr = nullptr);
 
 /// @brief Harmonic ratio — strength of harmonic content per frame.
 ///
@@ -125,8 +126,8 @@ Value pitchSRH(const Value &x, double fs,
 /// @param mr  Memory resource (nullptr → process default).
 /// @return    Column vector of per-frame harmonic ratios in `[0, 1]`.
 /// @see pitch
-Value harmonicRatio(const Value &x, double fs,
-                    std::pmr::memory_resource *mr = nullptr);
+Value harmonicRatio(const Value &x, keel::f64 fs,
+                    keel::Allocator *mr = nullptr);
 
 
 /// @}

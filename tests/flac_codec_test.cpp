@@ -1,4 +1,5 @@
 // toolboxes/audio/tests/flac_codec_test.cpp
+#include <keel/core.h>
 #include <gtest/gtest.h>
 #include "../src/io/flac_codec.hpp"
 #include <cmath>
@@ -12,18 +13,18 @@ namespace {
 // Helper to write bits to MSB-first buffer
 class BitWriter {
 public:
-    void writeBits(uint32_t val, unsigned n) {
+    void writeBits(keel::u32 val, unsigned n) {
         for (int i = static_cast<int>(n) - 1; i >= 0; --i) {
             bitBuf_ = (bitBuf_ << 1) | ((val >> i) & 1);
             if (++bitsCount_ == 8) {
-                data_.push_back(static_cast<uint8_t>(bitBuf_));
+                data_.push_back(static_cast<keel::u8>(bitBuf_));
                 bitBuf_ = 0;
                 bitsCount_ = 0;
             }
         }
     }
 
-    void writeUtf8(uint32_t val) {
+    void writeUtf8(keel::u32 val) {
         if (val < 0x80) writeBits(val, 8);
         else {
             writeBits(0xC0 | (val >> 6), 8);
@@ -37,18 +38,18 @@ public:
         }
     }
 
-    const std::vector<uint8_t> &data() const { return data_; }
+    const std::vector<keel::u8> &data() const { return data_; }
 
 private:
-    std::vector<uint8_t> data_;
-    uint32_t bitBuf_ = 0;
+    std::vector<keel::u8> data_;
+    keel::u32 bitBuf_ = 0;
     unsigned bitsCount_ = 0;
 };
 
 // Construct a minimal valid 16-bit stereo FLAC stream with Verbatim subframe
-std::vector<uint8_t> makeSyntheticFlac(uint32_t blockSize, uint32_t sampleRate,
-                                       const std::vector<int16_t> &left,
-                                       const std::vector<int16_t> &right)
+std::vector<keel::u8> makeSyntheticFlac(keel::u32 blockSize, keel::u32 sampleRate,
+                                       const std::vector<keel::i16> &left,
+                                       const std::vector<keel::i16> &right)
 {
     BitWriter bw;
     // Magic 'fLaC'
@@ -87,16 +88,16 @@ std::vector<uint8_t> makeSyntheticFlac(uint32_t blockSize, uint32_t sampleRate,
     bw.writeBits(0, 1);       // zero
     bw.writeBits(1, 6);       // Verbatim (000001)
     bw.writeBits(0, 1);       // wasted bits = 0
-    for (size_t i = 0; i < blockSize; ++i) {
-        bw.writeBits(static_cast<uint16_t>(left[i]), 16);
+    for (keel::usize i = 0; i < blockSize; ++i) {
+        bw.writeBits(static_cast<keel::u16>(left[i]), 16);
     }
 
     // Subframe 1 (Right): Verbatim
     bw.writeBits(0, 1);
     bw.writeBits(1, 6);
     bw.writeBits(0, 1);
-    for (size_t i = 0; i < blockSize; ++i) {
-        bw.writeBits(static_cast<uint16_t>(right[i]), 16);
+    for (keel::usize i = 0; i < blockSize; ++i) {
+        bw.writeBits(static_cast<keel::u16>(right[i]), 16);
     }
 
     bw.alignToByte();
@@ -109,16 +110,16 @@ std::vector<uint8_t> makeSyntheticFlac(uint32_t blockSize, uint32_t sampleRate,
 
 TEST(FlacCodecTest, MagicAndSniffing) {
     EXPECT_FALSE(isFlacBytes(nullptr, 0));
-    EXPECT_FALSE(isFlacBytes(reinterpret_cast<const uint8_t *>("fLaX"), 4));
-    EXPECT_TRUE(isFlacBytes(reinterpret_cast<const uint8_t *>("fLaC1234"), 8));
+    EXPECT_FALSE(isFlacBytes(reinterpret_cast<const keel::u8 *>("fLaX"), 4));
+    EXPECT_TRUE(isFlacBytes(reinterpret_cast<const keel::u8 *>("fLaC1234"), 8));
 }
 
 TEST(FlacCodecTest, SyntheticStreamDecode) {
-    const uint32_t N = 128;
-    std::vector<int16_t> left(N), right(N);
-    for (uint32_t i = 0; i < N; ++i) {
-        left[i] = static_cast<int16_t>(i * 200 - 10000);
-        right[i] = static_cast<int16_t>(10000 - i * 150);
+    const keel::u32 N = 128;
+    std::vector<keel::i16> left(N), right(N);
+    for (keel::u32 i = 0; i < N; ++i) {
+        left[i] = static_cast<keel::i16>(i * 200 - 10000);
+        right[i] = static_cast<keel::i16>(10000 - i * 150);
     }
 
     auto flacBytes = makeSyntheticFlac(N, 44100, left, right);
@@ -139,7 +140,7 @@ TEST(FlacCodecTest, SyntheticStreamDecode) {
     EXPECT_EQ(data.totalSamples, N);
 
     const double *y = data.y.doubleData();
-    for (uint32_t i = 0; i < N; ++i) {
+    for (keel::u32 i = 0; i < N; ++i) {
         EXPECT_NEAR(y[0 * N + i], static_cast<double>(left[i]) / 32768.0, 0.0001);
         EXPECT_NEAR(y[1 * N + i], static_cast<double>(right[i]) / 32768.0, 0.0001);
     }

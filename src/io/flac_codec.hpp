@@ -5,10 +5,11 @@
 
 #pragma once
 
+#include <keel/core.h>
+#include <keel/memory.h>
 #include "wav_codec.hpp" // For AudioData and AudioInfo
 
 #include <cstdint>
-#include <memory_resource>
 #include <numkit/value/value.hpp>
 #include <string>
 #include <vector>
@@ -16,16 +17,16 @@
 namespace numkit::audio {
 
 /// Sniff FLAC magic bytes directly from an in-memory buffer.
-bool isFlacBytes(const std::uint8_t *data, std::size_t len);
+bool isFlacBytes(const keel::u8 *data, keel::usize len);
 bool isFlacBytes(const std::string &b);
 
 /// Decode FLAC audio from in-memory byte buffer.
-AudioData readFlac(const std::uint8_t *data, std::size_t len,
-                   int64_t startSample = 1, int64_t endSample = -1,
+AudioData readFlac(const keel::u8 *data, keel::usize len,
+                   keel::i64 startSample = 1, keel::i64 endSample = -1,
                    bool nativeType = false,
-                   std::pmr::memory_resource *mr = nullptr);
+                   keel::Allocator *mr = nullptr);
 
 /// Peek FLAC metadata without decoding all audio frames.
-AudioInfo peekFlac(const std::uint8_t *data, std::size_t len);
+AudioInfo peekFlac(const keel::u8 *data, keel::usize len);
 
 } // namespace numkit::audio

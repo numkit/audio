@@ -5,8 +5,9 @@
 
 #pragma once
 
+#include <keel/core.h>
+#include <keel/memory.h>
 #include <cstdint>
-#include <memory_resource>
 #include <numkit/value/value.hpp>
 #include <string>
 #include <vector>
@@ -14,39 +15,39 @@
 namespace numkit::audio {
 
 struct MidiNote {
-    uint16_t track = 0;
-    uint8_t channel = 0;
-    uint8_t noteNumber = 60; // Middle C
-    uint8_t velocity = 64;
+    keel::u16 track = 0;
+    keel::u8 channel = 0;
+    keel::u8 noteNumber = 60; // Middle C
+    keel::u8 velocity = 64;
     double startTimeSec = 0.0;
     double endTimeSec = 0.0;
     double durationSec = 0.0;
 };
 
 struct MidiInfo {
-    uint16_t format = 0;             // 0 or 1
-    uint16_t numTracks = 0;
-    uint16_t ticksPerQuarterNote = 480;
+    keel::u16 format = 0;             // 0 or 1
+    keel::u16 numTracks = 0;
+    keel::u16 ticksPerQuarterNote = 480;
     double initialTempoBpm = 120.0;
     double duration = 0.0;           // in seconds
-    uint64_t totalNotes = 0;
+    keel::u64 totalNotes = 0;
     std::string trackName;
 };
 
 /// Sniff MIDI 'MThd' magic directly from an in-memory buffer.
-bool isMidiBytes(const std::uint8_t *data, std::size_t len);
+bool isMidiBytes(const keel::u8 *data, keel::usize len);
 bool isMidiBytes(const std::string &b);
 
 /// Peek MIDI file metadata without decoding all note events.
-MidiInfo peekMidi(const std::uint8_t *data, std::size_t len);
+MidiInfo peekMidi(const keel::u8 *data, keel::usize len);
 
 /// Decode MIDI note matrix: [Track, Channel, Note, Velocity, StartTime(s), EndTime(s)] (N x 6 matrix).
-Value readMidi(const std::uint8_t *data, std::size_t len,
-               std::pmr::memory_resource *mr = nullptr);
+Value readMidi(const keel::u8 *data, keel::usize len,
+               keel::Allocator *mr = nullptr);
 
 /// Encode note matrix [N x 6] to Standard MIDI File (SMF Format 0).
-std::vector<std::uint8_t> writeMidiToBytes(const Value &notesMatrix,
-                                           uint16_t ticksPerQuarterNote = 480,
+std::vector<keel::u8> writeMidiToBytes(const Value &notesMatrix,
+                                           keel::u16 ticksPerQuarterNote = 480,
                                            double tempoBpm = 120.0);
 
 } // namespace numkit::audio

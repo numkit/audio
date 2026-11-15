@@ -7,8 +7,9 @@
 
 #pragma once
 
+#include <keel/core.h>
+#include <keel/memory.h>
 #include <cstdint>
-#include <memory_resource>
 #include <numkit/value/value.hpp>
 #include <string>
 #include <vector>
@@ -22,10 +23,10 @@ namespace numkit::audio {
 /// @brief Decoded audio waveform data and basic metadata.
 struct AudioData {
     Value y;                      ///< Audio data matrix `N x C` (samples along rows, channels along columns).
-    double sampleRate = 0.0;      ///< Sampling frequency `Fs` in Hz.
-    uint16_t bitsPerSample = 16;  ///< Quantization bit depth per sample.
-    uint16_t numChannels = 1;     ///< Number of interleaved audio channels.
-    uint64_t totalSamples = 0;    ///< Total number of sample frames per channel.
+    keel::f64 sampleRate = 0.0;      ///< Sampling frequency `Fs` in Hz.
+    keel::u16 bitsPerSample = 16;  ///< Quantization bit depth per sample.
+    keel::u16 numChannels = 1;     ///< Number of interleaved audio channels.
+    keel::u64 totalSamples = 0;    ///< Total number of sample frames per channel.
     std::string title;            ///< Embedded track title metadata.
     std::string artist;           ///< Embedded artist metadata.
     std::string comment;          ///< Embedded comment or description metadata.
@@ -35,12 +36,12 @@ struct AudioData {
 struct AudioInfo {
     std::string format;            ///< Container format (e.g. `"WAV"`, `"FLAC"`, `"MP3"`, `"AIFF"`).
     std::string compressionMethod; ///< Audio compression codec name.
-    uint32_t numChannels = 0;      ///< Number of audio channels.
-    double sampleRate = 0.0;       ///< Sampling rate in Hz.
-    uint64_t totalSamples = 0;     ///< Total sample frames in file.
-    double duration = 0.0;         ///< Total duration in seconds.
-    uint16_t bitsPerSample = 0;    ///< Bits per sample.
-    uint32_t bitRate = 0;          ///< Bitrate in kbps.
+    keel::u32 numChannels = 0;      ///< Number of audio channels.
+    keel::f64 sampleRate = 0.0;       ///< Sampling rate in Hz.
+    keel::u64 totalSamples = 0;     ///< Total sample frames in file.
+    keel::f64 duration = 0.0;         ///< Total duration in seconds.
+    keel::u16 bitsPerSample = 0;    ///< Bits per sample.
+    keel::u32 bitRate = 0;          ///< Bitrate in kbps.
     std::string title;             ///< Track title.
     std::string artist;            ///< Track artist.
     std::string comment;           ///< Comment or genre.
@@ -56,10 +57,10 @@ struct AudioInfo {
 /// @param nativeType True to return integer types, false for normalized `[-1.0, 1.0]` double.
 /// @param mr Memory resource for output allocation.
 /// @return AudioData containing audio matrix and sampling rate.
-AudioData audioreadFromBytes(const std::uint8_t *data, std::size_t len,
-                            int64_t startSample = 1, int64_t endSample = -1,
+AudioData audioreadFromBytes(const keel::u8 *data, keel::usize len,
+                            keel::i64 startSample = 1, keel::i64 endSample = -1,
                             bool nativeType = false,
-                            std::pmr::memory_resource *mr = nullptr);
+                            keel::Allocator *mr = nullptr);
 
 /// @brief Decodes audio from string memory buffer (`audioread(bytes)`).
 /// @param bytes Byte string containing audio file contents.
@@ -69,15 +70,15 @@ AudioData audioreadFromBytes(const std::uint8_t *data, std::size_t len,
 /// @param mr Memory resource for output allocation.
 /// @return AudioData containing audio matrix and sampling rate.
 AudioData audioreadFromBytes(const std::string &bytes,
-                            int64_t startSample = 1, int64_t endSample = -1,
+                            keel::i64 startSample = 1, keel::i64 endSample = -1,
                             bool nativeType = false,
-                            std::pmr::memory_resource *mr = nullptr);
+                            keel::Allocator *mr = nullptr);
 
 /// @brief Reads audio metadata from memory buffer without decoding audio samples (`info = audioinfo(bytes)`).
 /// @param data Pointer to raw audio bytes.
 /// @param len Length of buffer in bytes.
 /// @return AudioInfo containing file format, sample rate, channels, and duration.
-AudioInfo audioinfoFromBytes(const std::uint8_t *data, std::size_t len);
+AudioInfo audioinfoFromBytes(const keel::u8 *data, keel::usize len);
 
 /// @brief Reads audio metadata from string memory buffer (`info = audioinfo(bytes)`).
 /// @param bytes Audio file bytes as string.
@@ -93,9 +94,9 @@ AudioInfo audioinfoFromBytes(const std::string &bytes);
 /// @param artist Optional metadata artist.
 /// @param comment Optional metadata comment.
 /// @return Vector of encoded file bytes.
-std::vector<std::uint8_t> audiowriteToBytes(const Value &y, double sampleRate,
+std::vector<keel::u8> audiowriteToBytes(const Value &y, keel::f64 sampleRate,
                                             const std::string &format = "wav",
-                                            uint16_t bitsPerSample = 16,
+                                            keel::u16 bitsPerSample = 16,
                                             const std::string &title = "",
                                             const std::string &artist = "",
                                             const std::string &comment = "");
@@ -111,9 +112,9 @@ std::vector<std::uint8_t> audiowriteToBytes(const Value &y, double sampleRate,
 /// @return AudioData containing decoded samples matrix and metadata.
 /// @see audiowrite, audioinfo
 AudioData audioread(const std::string &path,
-                    int64_t startSample = 1, int64_t endSample = -1,
+                    keel::i64 startSample = 1, keel::i64 endSample = -1,
                     bool nativeType = false,
-                    std::pmr::memory_resource *mr = nullptr);
+                    keel::Allocator *mr = nullptr);
 
 /// @brief Returns audio file metadata (`info = audioinfo(filename)`).
 /// @param path Path to audio file.
@@ -130,8 +131,8 @@ AudioInfo audioinfo(const std::string &path);
 /// @param artist Optional artist metadata.
 /// @param comment Optional comment metadata.
 /// @see audioread, audioinfo
-void audiowrite(const std::string &path, const Value &y, double sampleRate,
-                uint16_t bitsPerSample = 16,
+void audiowrite(const std::string &path, const Value &y, keel::f64 sampleRate,
+                keel::u16 bitsPerSample = 16,
                 const std::string &title = "",
                 const std::string &artist = "",
                 const std::string &comment = "");

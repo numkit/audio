@@ -9,6 +9,8 @@
 // Compute reconciled to the canonical mr-last API (matching the header)
 // as part of this split. Phase 2b — see project_layering_refactor memory.
 
+#include <keel/core.h>
+#include <keel/ref.h>
 #include <numkit/audio/scale/freq_scales.hpp>
 
 #include <numkit/sys/plugin.hpp>   // CallContext, ctx.engine->resource()
@@ -23,11 +25,11 @@ namespace numkit::audio {
 namespace detail {
 
 #define NUMKIT_ELEM_REG(FN)                                                          \
-    void FN##_reg(Span<const Value> args, size_t /*nargout*/,                    \
-                  Span<Value> outs, CallContext &ctx)                            \
+    void FN##_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/,                    \
+                  keel::MutArrayRef<Value> outs, CallContext &ctx)                            \
     {                                                                            \
         argcheck::checkNargin(args.size(), 1, 1, #FN);                           \
-        outs[0] = FN(args[0], ctx.engine->resource());                           \
+        outs[0] = FN(args[0], ctx.engine->allocator());                           \
     }
 
 NUMKIT_ELEM_REG(hz2mel)
@@ -56,20 +58,20 @@ bool isStandard532_2(const Value &v)
 }
 } // anon
 
-void phon2sone_reg(Span<const Value> args, size_t /*nargout*/,
-                   Span<Value> outs, CallContext &ctx)
+void phon2sone_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/,
+                   keel::MutArrayRef<Value> outs, CallContext &ctx)
 {
     argcheck::checkNargin(args.size(), 1, 2, "phon2sone");
     bool iso532_2 = (args.size() >= 2) && isStandard532_2(args[1]);
-    outs[0] = phon2sone(args[0], iso532_2, ctx.engine->resource());
+    outs[0] = phon2sone(args[0], iso532_2, ctx.engine->allocator());
 }
 
-void sone2phon_reg(Span<const Value> args, size_t /*nargout*/,
-                   Span<Value> outs, CallContext &ctx)
+void sone2phon_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/,
+                   keel::MutArrayRef<Value> outs, CallContext &ctx)
 {
     argcheck::checkNargin(args.size(), 1, 2, "sone2phon");
     bool iso532_2 = (args.size() >= 2) && isStandard532_2(args[1]);
-    outs[0] = sone2phon(args[0], iso532_2, ctx.engine->resource());
+    outs[0] = sone2phon(args[0], iso532_2, ctx.engine->allocator());
 }
 
 } // namespace detail

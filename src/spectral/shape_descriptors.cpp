@@ -19,6 +19,11 @@
 //
 // PMR HARD RULE: every fn takes std::pmr::memory_resource *mr.
 
+#include <keel/core.h>
+#include <keel/memory.h>
+#include <keel/arena.h>
+#include <keel/array.h>
+#include <keel/math.h>
 #include <numkit/audio/spectral/shape_descriptors.hpp>
 
 // Compute-only TU: Value substrate + Error, no engine. The spectral*
@@ -26,13 +31,11 @@
 #include <numkit/value/argcheck.hpp>
 #include <numkit/value/value.hpp>
 #include <numkit/value/error.hpp>
-#include <numkit/value/scratch.hpp>
 
 #include "fft_one_sided.hpp"
 
 #include <algorithm>
 #include <cmath>
-#include <complex>
 #include <cstdint>
 #include <vector>
 
@@ -48,8 +51,8 @@ struct Stft {
     Value X;              // M × (F·C), channel-major (channel c's frames
                           // occupy columns [c·F, c·F+F)); M = selected bins
     Value F;              // M × 1, frequency axis in Hz
-    size_t numChan = 1;
-    size_t numFrames = 0;
+    keel::usize numChan = 1;
+    keel::usize numFrames = 0;
 };
 
 // Shared argument validation for the spectral-descriptor options, in the
@@ -93,18 +96,18 @@ static void requireFloatClass(const Value &v, const char *fn,
 // earlier ≥128 / pinned-64/32 reading matched the probed fs grid but
 // the real thresholds are >120 / >80 with min(64, xLen) and half-window
 // fallbacks.
-static Stft computeStft(std::pmr::memory_resource *mr, const Value &x,
+static Stft computeStft(keel::Allocator *mr, const Value &x,
                         double fs, bool magnitude, const char *fn,
                         const StftOptions &opts)
 {
-    const size_t xLen   = x.dims().rows();
-    const size_t numChan = x.dims().cols();
+    const keel::usize xLen   = x.dims().rows();
+    const keel::usize numChan = x.dims().cols();
     const bool haveWin = !opts.Window.isEmpty();
     const bool haveOvl = !opts.OverlapLength.isEmpty();
 
     // ── window ──
     std::vector<double> win;
-    size_t winLen;
+    keel::usize winLen;
     if (!haveWin) {
         const double wNatural = std::round(fs * 0.03);
         if (wNatural > 120.0) {
@@ -117,16 +120,16 @@ static Stft computeStft(std::pmr::memory_resource *mr, const Value &x,
                                 + std::to_string(xLen) + ".",
                             0, 0, fn, "",
                             std::string("numkit:") + fn + ":BadWindowLength");
-            winLen = static_cast<size_t>(wNatural);
+            winLen = static_cast<keel::usize>(wNatural);
             win.assign(winLen, 1.0);
         } else if (!haveOvl) {
-            winLen = std::min<size_t>(64, xLen);
+            winLen = std::min<keel::usize>(64, xLen);
             win.assign(winLen, 1.0);
         } else {
             // "8 segments" geometry: window sized so that 8 hops of
             // (window − ovl) tile the signal exactly.
             const double ov0 = opts.OverlapLength.elemAsDouble(0);
-            winLen = static_cast<size_t>(
+            winLen = static_cast<keel::usize>(
                 std::floor((static_cast<double>(xLen) + 7.0 * ov0) / 8.0));
             win.assign(winLen, 1.0);
         }
@@ -145,8 +148,8 @@ static Stft computeStft(std::pmr::memory_resource *mr, const Value &x,
             throw Error(std::string(fn) + ": input Window must be a "
                         "column vector.", 0, 0, fn, "",
                         std::string("numkit:") + fn + ":expectedColumn");
-        const size_t wn = W.numel();
-        for (size_t i = 0; i < wn; ++i)
+        const keel::usize wn = W.numel();
+        for (keel::usize i = 0; i < wn; ++i)
             if (!std::isfinite(W.elemAsDouble(i)))
                 throw Error(std::string(fn) + ": input Window must be "
                             "finite.", 0, 0, fn, "",
@@ -160,14 +163,14 @@ static Stft computeStft(std::pmr::memory_resource *mr, const Value &x,
                         std::string("numkit:") + fn + ":notLessEqual");
         winLen = wn;
         win.resize(wn);
-        for (size_t i = 0; i < wn; ++i) win[i] = W.elemAsDouble(i);
+        for (keel::usize i = 0; i < wn; ++i) win[i] = W.elemAsDouble(i);
     }
 
     // ── overlap ──
-    size_t overlap;
+    keel::usize overlap;
     if (!haveOvl) {
         const double oNat = std::round(fs * 0.02);
-        overlap = (oNat > 80.0) ? static_cast<size_t>(oNat)
+        overlap = (oNat > 80.0) ? static_cast<keel::usize>(oNat)
                                 : winLen / 2;      // fix(0.5·windowLength)
     } else {
         const Value &O = opts.OverlapLength;
@@ -195,11 +198,11 @@ static Stft computeStft(std::pmr::memory_resource *mr, const Value &x,
                             + std::to_string(winLen) + ".",
                         0, 0, fn, "",
                         std::string("numkit:") + fn + ":BadOverlapLength");
-        overlap = static_cast<size_t>(v);
+        overlap = static_cast<keel::usize>(v);
     }
 
     // ── FFT length ──
-    size_t nfft = winLen;
+    keel::usize nfft = winLen;
     if (!opts.FFTLength.isEmpty()) {
         const Value &Nv = opts.FFTLength;
         if (Nv.type() == ValueType::COMPLEX)
@@ -220,7 +223,7 @@ static Stft computeStft(std::pmr::memory_resource *mr, const Value &x,
                         "2.", 0, 0, fn, "",
                         std::string("numkit:") + fn
                             + ":mustBeGreaterThanOrEqual");
-        nfft = static_cast<size_t>(v);
+        nfft = static_cast<keel::usize>(v);
     }
     if (nfft < winLen)
         throw Error(std::string(fn) + ": the FFT length must be greater "
@@ -265,16 +268,16 @@ static Stft computeStft(std::pmr::memory_resource *mr, const Value &x,
                         std::string("numkit:") + fn + ":notLessEqual");
     }
 
-    const size_t hop = winLen - overlap;
-    const size_t numFrames =
+    const keel::usize hop = winLen - overlap;
+    const keel::usize numFrames =
         (xLen >= winLen) ? ((xLen - winLen) / hop + 1) : 0;
 
     // Selected bins (1-based in the reference; 0-based here after −1).
-    const size_t binLow  = static_cast<size_t>(
+    const keel::usize binLow  = static_cast<keel::usize>(
         std::ceil(rLo * static_cast<double>(nfft) / fs + 1.0));
-    const size_t binHigh = static_cast<size_t>(
+    const keel::usize binHigh = static_cast<keel::usize>(
         std::floor(rHi * static_cast<double>(nfft) / fs + 1.0));
-    const size_t M = (binHigh >= binLow) ? (binHigh - binLow + 1) : 0;
+    const keel::usize M = (binHigh >= binLow) ? (binHigh - binLow + 1) : 0;
 
     Stft s;
     s.numChan = numChan;
@@ -284,7 +287,7 @@ static Stft computeStft(std::pmr::memory_resource *mr, const Value &x,
     if (numFrames == 0 || M == 0) return s;
 
     double *fd = s.F.doubleDataMut();
-    for (size_t k = 0; k < M; ++k)
+    for (keel::usize k = 0; k < M; ++k)
         fd[k] = (fs / static_cast<double>(nfft))
                 * static_cast<double>(binLow - 1 + k);
     if ((nfft % 2) != 0 && binHigh == nfft / 2 + 1 && M > 0)
@@ -298,19 +301,19 @@ static Stft computeStft(std::pmr::memory_resource *mr, const Value &x,
     const bool halveDc = (binLow == 1);
     const bool halveNyq = (binHigh == nfft / 2 + 1) && (nfft % 2 == 0);
 
-    ScratchArena scratch(mr);
-    ScratchVec<double> frame(winLen, &scratch);
-    ScratchVec<double> half(nfft / 2 + 1, &scratch);
+    keel::ArenaTemp scratch = keel::get_scratch(mr);
+    keel::Array<double> frame(winLen, scratch.allocator());
+    keel::Array<double> half(nfft / 2 + 1, scratch.allocator());
     double *Xd = s.X.doubleDataMut();
-    for (size_t c = 0; c < numChan; ++c) {
-        for (size_t f = 0; f < numFrames; ++f) {
-            const size_t start = f * hop;
-            for (size_t i = 0; i < winLen; ++i)
+    for (keel::usize c = 0; c < numChan; ++c) {
+        for (keel::usize f = 0; f < numFrames; ++f) {
+            const keel::usize start = f * hop;
+            for (keel::usize i = 0; i < winLen; ++i)
                 frame[i] = x.elemAsDouble(c * xLen + start + i) * win[i];
             detail::fftPowerHalfN(mr, frame.data(), winLen, nfft,
                                   half.data());
             double *col = Xd + (c * numFrames + f) * M;
-            for (size_t k = 0; k < M; ++k) {
+            for (keel::usize k = 0; k < M; ++k) {
                 const double p = half[binLow - 1 + k];
                 col[k] = magnitude ? magScl * std::sqrt(p) : p * invPow;
             }
@@ -331,11 +334,11 @@ struct InputData {
     Value F;               // M × 1 frequency vector
     bool  isTime = true;   // true when input was (x, fs)
     bool  wantSingle = false;
-    size_t numChan = 1;
-    size_t numFrames = 0;
+    keel::usize numChan = 1;
+    keel::usize numFrames = 0;
 };
 
-InputData prepareInput(std::pmr::memory_resource *mr,
+InputData prepareInput(keel::Allocator *mr,
                        const Value &x, const Value &f,
                        bool magnitude, const char *fn,
                        const StftOptions &opts)
@@ -364,7 +367,7 @@ InputData prepareInput(std::pmr::memory_resource *mr,
                         0, 0, fn, "",
                         std::string("numkit:") + fn
                             + ":insufficientSignalLength");
-        for (size_t i = 0; i < x.numel(); ++i)
+        for (keel::usize i = 0; i < x.numel(); ++i)
             if (!std::isfinite(x.elemAsDouble(i)))
                 throw Error(std::string(fn) + ": input 1 (x) must be "
                             "finite.", 0, 0, fn, "",
@@ -392,7 +395,7 @@ InputData prepareInput(std::pmr::memory_resource *mr,
         d.X = x;
         d.F = f;
         d.isTime = false;
-        d.numChan = std::max<size_t>(1, x.dims().pages());
+        d.numChan = std::max<keel::usize>(1, x.dims().pages());
         d.numFrames = x.dims().cols();
     }
     return d;
@@ -403,12 +406,12 @@ InputData prepareInput(std::pmr::memory_resource *mr,
 // the time form's STFT matrix is channel-major by construction, and a
 // frequency-domain L×M×C array is column-major already.
 template <typename Cb>
-Value perFrameChannel(std::pmr::memory_resource *mr, const Value &X,
+Value perFrameChannel(keel::Allocator *mr, const Value &X,
                       const InputData &d, Cb cb)
 {
-    const size_t M = X.dims().rows();
-    const size_t F = d.numFrames;
-    const size_t C = d.numChan;
+    const keel::usize M = X.dims().rows();
+    const keel::usize F = d.numFrames;
+    const keel::usize C = d.numChan;
     Value out = Value::matrix(F, C,
                               d.wantSingle ? ValueType::SINGLE
                                            : ValueType::DOUBLE,
@@ -416,12 +419,12 @@ Value perFrameChannel(std::pmr::memory_resource *mr, const Value &X,
     if (M == 0) return out;
     double *od = d.wantSingle ? nullptr : out.doubleDataMut();
     float *of = d.wantSingle ? out.singleDataMut() : nullptr;
-    ScratchArena scratch(mr);
-    ScratchVec<double> col(M, &scratch);
-    for (size_t c = 0; c < C; ++c) {
-        for (size_t m = 0; m < F; ++m) {
-            const size_t base = (c * F + m) * M;
-            for (size_t i = 0; i < M; ++i) col[i] = X.elemAsDouble(base + i);
+    keel::ArenaTemp scratch = keel::get_scratch(mr);
+    keel::Array<double> col(M, scratch.allocator());
+    for (keel::usize c = 0; c < C; ++c) {
+        for (keel::usize m = 0; m < F; ++m) {
+            const keel::usize base = (c * F + m) * M;
+            for (keel::usize i = 0; i < M; ++i) col[i] = X.elemAsDouble(base + i);
             const double v = cb(col.data(), M);
             if (of) of[m + c * F] = static_cast<float>(v);
             else od[m + c * F] = v;
@@ -430,46 +433,46 @@ Value perFrameChannel(std::pmr::memory_resource *mr, const Value &X,
     return out;
 }
 
-double centroidOf(const double *X, const double *F, size_t M)
+double centroidOf(const double *X, const double *F, keel::usize M)
 {
     double sumX = 0.0, sumFX = 0.0;
-    for (size_t i = 0; i < M; ++i) { sumX += X[i]; sumFX += F[i] * X[i]; }
+    for (keel::usize i = 0; i < M; ++i) { sumX += X[i]; sumFX += F[i] * X[i]; }
     return (sumX > 0.0) ? sumFX / sumX : 0.0;
 }
 
 } // anon
 
 Value spectralFlux(const Value &x, const Value &f, double p,
-                   std::pmr::memory_resource *mr)
+                   keel::Allocator *mr)
 {
     return spectralFluxFull(x, f, p, nullptr, nullptr, false, {}, mr);
 }
 
 // ── Centroid ──────────────────────────────────────────────────────────
 Value spectralCentroid(const Value &x, const Value &f,
-                       const StftOptions &stft, std::pmr::memory_resource *mr)
+                       const StftOptions &stft, keel::Allocator *mr)
 {
     auto d = prepareInput(mr, x, f, false, "spectralCentroid", stft);
     const double *Fd = d.F.doubleData();
-    return perFrameChannel(mr, d.X, d, [Fd](const double *col, size_t M) {
+    return perFrameChannel(mr, d.X, d, [Fd](const double *col, keel::usize M) {
         return centroidOf(col, Fd, M);
     });
 }
-Value spectralCentroid(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+Value spectralCentroid(const Value &x, const Value &f, keel::Allocator *mr)
 {
     return spectralCentroid(x, f, StftOptions{}, mr);
 }
 
 // ── Spread ────────────────────────────────────────────────────────────
 Value spectralSpread(const Value &x, const Value &f,
-                     const StftOptions &stft, std::pmr::memory_resource *mr)
+                     const StftOptions &stft, keel::Allocator *mr)
 {
     auto d = prepareInput(mr, x, f, false, "spectralSpread", stft);
     const double *Fd = d.F.doubleData();
-    return perFrameChannel(mr, d.X, d, [Fd](const double *col, size_t M) {
+    return perFrameChannel(mr, d.X, d, [Fd](const double *col, keel::usize M) {
         const double c = centroidOf(col, Fd, M);
         double sumX = 0.0, sumDX = 0.0;
-        for (size_t i = 0; i < M; ++i) {
+        for (keel::usize i = 0; i < M; ++i) {
             const double dF = Fd[i] - c;
             sumX  += col[i];
             sumDX += dF * dF * col[i];
@@ -477,7 +480,7 @@ Value spectralSpread(const Value &x, const Value &f,
         return (sumX > 0.0) ? std::sqrt(sumDX / sumX) : 0.0;
     });
 }
-Value spectralSpread(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+Value spectralSpread(const Value &x, const Value &f, keel::Allocator *mr)
 {
     return spectralSpread(x, f, StftOptions{}, mr);
 }
@@ -485,17 +488,17 @@ Value spectralSpread(const Value &x, const Value &f, std::pmr::memory_resource *
 // ── Rolloff point ─────────────────────────────────────────────────────
 Value spectralRolloffPoint(const Value &x, const Value &f, double percentile,
                            const StftOptions &stft,
-                           std::pmr::memory_resource *mr)
+                           keel::Allocator *mr)
 {
     auto d = prepareInput(mr, x, f, false, "spectralRolloffPoint", stft);
     const double *Fd = d.F.doubleData();
-    return perFrameChannel(mr, d.X, d, [Fd, percentile](const double *col, size_t M) {
+    return perFrameChannel(mr, d.X, d, [Fd, percentile](const double *col, keel::usize M) {
         double total = 0.0;
-        for (size_t i = 0; i < M; ++i) total += col[i];
+        for (keel::usize i = 0; i < M; ++i) total += col[i];
         const double thresh = percentile * total;
         if (total <= 0.0 || M == 0) return 0.0;
         double accum = 0.0;
-        for (size_t i = 0; i < M; ++i) {
+        for (keel::usize i = 0; i < M; ++i) {
             accum += col[i];
             if (accum >= thresh) return Fd[i];
         }
@@ -503,46 +506,46 @@ Value spectralRolloffPoint(const Value &x, const Value &f, double percentile,
     });
 }
 Value spectralRolloffPoint(const Value &x, const Value &f, double percentile,
-                           std::pmr::memory_resource *mr)
+                           keel::Allocator *mr)
 {
     return spectralRolloffPoint(x, f, percentile, StftOptions{}, mr);
 }
 
 // ── Decrease ──────────────────────────────────────────────────────────
 Value spectralDecrease(const Value &x, const Value &f,
-                       const StftOptions &stft, std::pmr::memory_resource *mr)
+                       const StftOptions &stft, keel::Allocator *mr)
 {
     auto d = prepareInput(mr, x, f, false, "spectralDecrease", stft);
-    return perFrameChannel(mr, d.X, d, [](const double *col, size_t M) {
+    return perFrameChannel(mr, d.X, d, [](const double *col, keel::usize M) {
         if (M < 2) return 0.0;
         const double X1 = col[0];
         double num = 0.0, den = 0.0;
-        for (size_t k = 1; k < M; ++k) {
+        for (keel::usize k = 1; k < M; ++k) {
             num += (col[k] - X1) / static_cast<double>(k);
             den += col[k];
         }
         return (den > 0.0) ? num / den : 0.0;
     });
 }
-Value spectralDecrease(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+Value spectralDecrease(const Value &x, const Value &f, keel::Allocator *mr)
 {
     return spectralDecrease(x, f, StftOptions{}, mr);
 }
 
 // ── Slope ─────────────────────────────────────────────────────────────
 Value spectralSlope(const Value &x, const Value &f,
-                    const StftOptions &stft, std::pmr::memory_resource *mr)
+                    const StftOptions &stft, keel::Allocator *mr)
 {
     auto d = prepareInput(mr, x, f, false, "spectralSlope", stft);
     const double *Fd = d.F.doubleData();
-    return perFrameChannel(mr, d.X, d, [Fd](const double *col, size_t M) {
+    return perFrameChannel(mr, d.X, d, [Fd](const double *col, keel::usize M) {
         if (M < 2) return 0.0;
         double meanF = 0.0, meanX = 0.0;
-        for (size_t i = 0; i < M; ++i) { meanF += Fd[i]; meanX += col[i]; }
+        for (keel::usize i = 0; i < M; ++i) { meanF += Fd[i]; meanX += col[i]; }
         meanF /= static_cast<double>(M);
         meanX /= static_cast<double>(M);
         double num = 0.0, den = 0.0;
-        for (size_t i = 0; i < M; ++i) {
+        for (keel::usize i = 0; i < M; ++i) {
             const double df = Fd[i] - meanF;
             num += df * (col[i] - meanX);
             den += df * df;
@@ -550,7 +553,7 @@ Value spectralSlope(const Value &x, const Value &f,
         return (den > 0.0) ? num / den : 0.0;
     });
 }
-Value spectralSlope(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+Value spectralSlope(const Value &x, const Value &f, keel::Allocator *mr)
 {
     return spectralSlope(x, f, StftOptions{}, mr);
 }
@@ -558,54 +561,54 @@ Value spectralSlope(const Value &x, const Value &f, std::pmr::memory_resource *m
 // ── Cycle I: Crest / Entropy / Flatness / Kurtosis / Skewness ─────────
 
 Value spectralCrest(const Value &x, const Value &f,
-                    const StftOptions &stft, std::pmr::memory_resource *mr)
+                    const StftOptions &stft, keel::Allocator *mr)
 {
     auto d = prepareInput(mr, x, f, false, "spectralCrest", stft);
-    return perFrameChannel(mr, d.X, d, [](const double *col, size_t M) {
+    return perFrameChannel(mr, d.X, d, [](const double *col, keel::usize M) {
         if (M == 0) return 0.0;
         double mx = col[0], sm = 0.0;
-        for (size_t i = 0; i < M; ++i) { if (col[i] > mx) mx = col[i]; sm += col[i]; }
+        for (keel::usize i = 0; i < M; ++i) { if (col[i] > mx) mx = col[i]; sm += col[i]; }
         const double mean = sm / static_cast<double>(M);
         return (mean > 0.0) ? mx / mean : 0.0;
     });
 }
-Value spectralCrest(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+Value spectralCrest(const Value &x, const Value &f, keel::Allocator *mr)
 {
     return spectralCrest(x, f, StftOptions{}, mr);
 }
 
 Value spectralEntropy(const Value &x, const Value &f,
-                      const StftOptions &stft, std::pmr::memory_resource *mr)
+                      const StftOptions &stft, keel::Allocator *mr)
 {
     auto d = prepareInput(mr, x, f, false, "spectralEntropy", stft);
-    return perFrameChannel(mr, d.X, d, [](const double *col, size_t M) {
+    return perFrameChannel(mr, d.X, d, [](const double *col, keel::usize M) {
         if (M < 2) return 0.0;
         double sm = 0.0;
-        for (size_t i = 0; i < M; ++i) sm += col[i];
+        for (keel::usize i = 0; i < M; ++i) sm += col[i];
         if (sm <= 0.0) return 0.0;
         double H = 0.0;
         const double inv_log2 = 1.0 / std::log(2.0);
-        for (size_t i = 0; i < M; ++i) {
+        for (keel::usize i = 0; i < M; ++i) {
             const double q = col[i] / sm;
             if (q > 0.0) H -= q * std::log(q) * inv_log2;
         }
         return H / (std::log(static_cast<double>(M)) * inv_log2);
     });
 }
-Value spectralEntropy(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+Value spectralEntropy(const Value &x, const Value &f, keel::Allocator *mr)
 {
     return spectralEntropy(x, f, StftOptions{}, mr);
 }
 
 Value spectralFlatness(const Value &x, const Value &f,
-                       const StftOptions &stft, std::pmr::memory_resource *mr)
+                       const StftOptions &stft, keel::Allocator *mr)
 {
     auto d = prepareInput(mr, x, f, false, "spectralFlatness", stft);
-    return perFrameChannel(mr, d.X, d, [](const double *col, size_t M) {
+    return perFrameChannel(mr, d.X, d, [](const double *col, keel::usize M) {
         if (M == 0) return 0.0;
         const double eps = std::numeric_limits<double>::epsilon();
         double sumLog = 0.0, sumX = 0.0;
-        for (size_t i = 0; i < M; ++i) {
+        for (keel::usize i = 0; i < M; ++i) {
             sumLog += std::log(col[i] + eps);
             sumX   += col[i];
         }
@@ -614,24 +617,24 @@ Value spectralFlatness(const Value &x, const Value &f,
         return (arith > 0.0) ? geom / arith : 0.0;
     });
 }
-Value spectralFlatness(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+Value spectralFlatness(const Value &x, const Value &f, keel::Allocator *mr)
 {
     return spectralFlatness(x, f, StftOptions{}, mr);
 }
 
 Value spectralKurtosis(const Value &x, const Value &f,
-                       const StftOptions &stft, std::pmr::memory_resource *mr)
+                       const StftOptions &stft, keel::Allocator *mr)
 {
     auto d = prepareInput(mr, x, f, false, "spectralKurtosis", stft);
     const double *Fd = d.F.doubleData();
-    return perFrameChannel(mr, d.X, d, [Fd](const double *col, size_t M) {
+    return perFrameChannel(mr, d.X, d, [Fd](const double *col, keel::usize M) {
         if (M < 2) return 0.0;
         double sumX = 0.0, sumFX = 0.0;
-        for (size_t i = 0; i < M; ++i) { sumX += col[i]; sumFX += Fd[i] * col[i]; }
+        for (keel::usize i = 0; i < M; ++i) { sumX += col[i]; sumFX += Fd[i] * col[i]; }
         if (sumX <= 0.0) return 0.0;
         const double centroid = sumFX / sumX;
         double m2 = 0.0, m4 = 0.0;
-        for (size_t i = 0; i < M; ++i) {
+        for (keel::usize i = 0; i < M; ++i) {
             const double dF = Fd[i] - centroid;
             const double dF2 = dF * dF;
             m2 += dF2 * col[i];
@@ -643,24 +646,24 @@ Value spectralKurtosis(const Value &x, const Value &f,
         return m4 / (spread4 * sumX);
     });
 }
-Value spectralKurtosis(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+Value spectralKurtosis(const Value &x, const Value &f, keel::Allocator *mr)
 {
     return spectralKurtosis(x, f, StftOptions{}, mr);
 }
 
 Value spectralSkewness(const Value &x, const Value &f,
-                       const StftOptions &stft, std::pmr::memory_resource *mr)
+                       const StftOptions &stft, keel::Allocator *mr)
 {
     auto d = prepareInput(mr, x, f, false, "spectralSkewness", stft);
     const double *Fd = d.F.doubleData();
-    return perFrameChannel(mr, d.X, d, [Fd](const double *col, size_t M) {
+    return perFrameChannel(mr, d.X, d, [Fd](const double *col, keel::usize M) {
         if (M < 2) return 0.0;
         double sumX = 0.0, sumFX = 0.0;
-        for (size_t i = 0; i < M; ++i) { sumX += col[i]; sumFX += Fd[i] * col[i]; }
+        for (keel::usize i = 0; i < M; ++i) { sumX += col[i]; sumFX += Fd[i] * col[i]; }
         if (sumX <= 0.0) return 0.0;
         const double centroid = sumFX / sumX;
         double m2 = 0.0, m3 = 0.0;
-        for (size_t i = 0; i < M; ++i) {
+        for (keel::usize i = 0; i < M; ++i) {
             const double dF = Fd[i] - centroid;
             m2 += dF * dF * col[i];
             m3 += dF * dF * dF * col[i];
@@ -671,7 +674,7 @@ Value spectralSkewness(const Value &x, const Value &f,
         return m3 / (spread3 * sumX);
     });
 }
-Value spectralSkewness(const Value &x, const Value &f, std::pmr::memory_resource *mr)
+Value spectralSkewness(const Value &x, const Value &f, keel::Allocator *mr)
 {
     return spectralSkewness(x, f, StftOptions{}, mr);
 }
@@ -704,7 +707,7 @@ void spectralFlux_argcheck(const Value &x, const Value &f, double p,
         throw Error("spectralFlux: input 2 (f) must be real.",
                     0, 0, "spectralFlux", "",
                     "numkit:spectralFlux:mustBeReal");
-    for (size_t i = 0; i < f.numel(); ++i) {
+    for (keel::usize i = 0; i < f.numel(); ++i) {
         const double fv = f.elemAsDouble(i);
         if (!(fv >= 0.0))
             throw Error("spectralFlux: input 2 (f) must be nonnegative.",
@@ -740,15 +743,15 @@ void spectralFlux_argcheck(const Value &x, const Value &f, double p,
 Value spectralFluxFull(const Value &x, const Value &f, double p,
                        const Value *initialCondition, Value *finalCondition,
                        bool magnitudeSpectrum, const StftOptions &stft,
-                       std::pmr::memory_resource *mr)
+                       keel::Allocator *mr)
 {
     spectralFlux_argcheck(x, f, p, initialCondition, finalCondition);
     const bool timeForm = f.numel() == 1;
 
     auto d = prepareInput(mr, x, f, magnitudeSpectrum, "spectralFlux", stft);
-    const size_t M = d.X.dims().rows();
-    const size_t F = d.numFrames;
-    const size_t C = d.numChan;
+    const keel::usize M = d.X.dims().rows();
+    const keel::usize F = d.numFrames;
+    const keel::usize C = d.numChan;
 
     // Result class follows the INPUT's class (the time form's STFT
     // buffer is double internally; the reference still returns single).
@@ -779,37 +782,37 @@ Value spectralFluxFull(const Value &x, const Value &f, double p,
     double *od = wantSingle ? nullptr : out.doubleDataMut();
     float *of = wantSingle ? out.singleDataMut() : nullptr;
     const double invP = 1.0 / p;
-    auto fluxPair = [&](size_t curBase, size_t prvBase) -> double {
+    auto fluxPair = [&](keel::usize curBase, keel::usize prvBase) -> double {
         double s = 0.0;
-        for (size_t i = 0; i < M; ++i) {
+        for (keel::usize i = 0; i < M; ++i) {
             const double diff = cx
-                ? std::abs(d.X.complexElem(curBase + i)
+                ? keel::abs(d.X.complexElem(curBase + i)
                            - d.X.complexElem(prvBase + i))
-                : std::abs(d.X.elemAsDouble(curBase + i)
+                : keel::abs(d.X.elemAsDouble(curBase + i)
                            - d.X.elemAsDouble(prvBase + i));
             s += std::pow(diff, p);
         }
         return std::pow(s, invP);
     };
-    auto readSpec = [&](size_t base) {
-        return cx ? std::abs(d.X.complexElem(base))
+    auto readSpec = [&](keel::usize base) {
+        return cx ? keel::abs(d.X.complexElem(base))
                   : d.X.elemAsDouble(base);
     };
-    for (size_t c = 0; c < C; ++c) {
-        const size_t first = (c * F + 0) * M;
+    for (keel::usize c = 0; c < C; ++c) {
+        const keel::usize first = (c * F + 0) * M;
         double r0 = 0.0;
         if (!timeForm && haveIc) {
             double s = 0.0;
-            for (size_t i = 0; i < M; ++i) {
+            for (keel::usize i = 0; i < M; ++i) {
                 const double cur = readSpec(first + i);
                 const double prv = initialCondition->elemAsDouble(c * M + i);
-                s += std::pow(std::abs(cur - prv), p);
+                s += std::pow(keel::abs(cur - prv), p);
             }
             r0 = std::pow(s, invP);
         }
         if (of) of[c * F] = static_cast<float>(r0);
         else od[c * F] = r0;
-        for (size_t fr = 1; fr < F; ++fr) {
+        for (keel::usize fr = 1; fr < F; ++fr) {
             const double r = fluxPair((c * F + fr) * M, (c * F + fr - 1) * M);
             if (of) of[c * F + fr] = static_cast<float>(r);
             else od[c * F + fr] = r;
@@ -824,9 +827,9 @@ Value spectralFluxFull(const Value &x, const Value &f, double p,
                                              : ValueType::DOUBLE, mr);
         double *fd = wantSingle ? nullptr : fcx.doubleDataMut();
         float *ff = wantSingle ? fcx.singleDataMut() : nullptr;
-        for (size_t c = 0; c < C; ++c) {
-            const size_t last = (c * F + F - 1) * M;
-            for (size_t i = 0; i < M; ++i) {
+        for (keel::usize c = 0; c < C; ++c) {
+            const keel::usize last = (c * F + F - 1) * M;
+            for (keel::usize i = 0; i < M; ++i) {
                 const double v = readSpec(last + i);
                 if (ff) ff[c * M + i] = static_cast<float>(v);
                 else fd[c * M + i] = v;

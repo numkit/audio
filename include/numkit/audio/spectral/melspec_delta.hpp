@@ -6,7 +6,8 @@
 
 #pragma once
 
-#include <memory_resource>
+#include <keel/core.h>
+#include <keel/memory.h>
 #include <numkit/value/value.hpp>
 #include <tuple>
 
@@ -41,9 +42,9 @@ namespace numkit::audio {
 /// @see mfcc, hz2mel, audioDelta
 std::tuple<Value, Value, Value>
 melSpectrogram(const Value &                x,
-               double                       fs,
+               keel::f64                       fs,
                int                          numBands = 32,
-               std::pmr::memory_resource *  mr       = nullptr);
+               keel::Allocator *  mr       = nullptr);
 
 /// Locally-smoothed first derivative along the time axis.
 ///
@@ -59,7 +60,7 @@ melSpectrogram(const Value &                x,
 /// @see melSpectrogram, mfcc
 Value audioDelta(const Value &                x,
                  int                          windowLength = 9,
-                 std::pmr::memory_resource *  mr           = nullptr);
+                 keel::Allocator *  mr           = nullptr);
 
 /// Full form: optional filter zi-state in, zf-state out (the reference's
 /// initialCondition argument and second output; shapes (wl-1) x channels).
@@ -67,7 +68,7 @@ Value audioDeltaFull(const Value &                x,
                      int                          windowLength,
                      const Value *                initialCondition,
                      Value *                      finalCondition,
-                     std::pmr::memory_resource *  mr           = nullptr);
+                     keel::Allocator *  mr           = nullptr);
 
 
 /// @}

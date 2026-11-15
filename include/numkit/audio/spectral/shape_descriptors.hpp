@@ -4,7 +4,8 @@
 
 #pragma once
 
-#include <memory_resource>
+#include <keel/core.h>
+#include <keel/memory.h>
 #include <numkit/value/value.hpp>
 
 namespace numkit::audio {
@@ -45,54 +46,54 @@ struct StftOptions {
 
 /// @brief Spectral centroid — power-weighted mean frequency.
 Value spectralCentroid(const Value &x, const Value &f,
-                       std::pmr::memory_resource *mr = nullptr);
+                       keel::Allocator *mr = nullptr);
 Value spectralCentroid(const Value &x, const Value &f,
                        const StftOptions &stft,
-                       std::pmr::memory_resource *mr = nullptr);
+                       keel::Allocator *mr = nullptr);
 
 /// @brief Spectral spread — power-weighted std around the centroid.
 Value spectralSpread(const Value &x, const Value &f,
-                     std::pmr::memory_resource *mr = nullptr);
+                     keel::Allocator *mr = nullptr);
 Value spectralSpread(const Value &x, const Value &f,
                      const StftOptions &stft,
-                     std::pmr::memory_resource *mr = nullptr);
+                     keel::Allocator *mr = nullptr);
 
 /// @brief Spectral rolloff frequency.
 Value spectralRolloffPoint(const Value &x, const Value &f,
-                           double percentile = 0.95,
-                           std::pmr::memory_resource *mr = nullptr);
+                           keel::f64 percentile = 0.95,
+                           keel::Allocator *mr = nullptr);
 Value spectralRolloffPoint(const Value &x, const Value &f,
-                           double percentile,
+                           keel::f64 percentile,
                            const StftOptions &stft,
-                           std::pmr::memory_resource *mr = nullptr);
+                           keel::Allocator *mr = nullptr);
 
 /// @brief Spectral decrease — slope-like measure relative to first bin.
 Value spectralDecrease(const Value &x, const Value &f,
-                       std::pmr::memory_resource *mr = nullptr);
+                       keel::Allocator *mr = nullptr);
 Value spectralDecrease(const Value &x, const Value &f,
                        const StftOptions &stft,
-                       std::pmr::memory_resource *mr = nullptr);
+                       keel::Allocator *mr = nullptr);
 
 /// @brief Spectral slope — least-squares slope of `(f, X)`.
 Value spectralSlope(const Value &x, const Value &f,
-                    std::pmr::memory_resource *mr = nullptr);
+                    keel::Allocator *mr = nullptr);
 Value spectralSlope(const Value &x, const Value &f,
                     const StftOptions &stft,
-                    std::pmr::memory_resource *mr = nullptr);
+                    keel::Allocator *mr = nullptr);
 
 /// @brief Spectral flux — `p`-norm of frame-to-frame spectrum differences.
-Value spectralFlux(const Value &x, const Value &f, double p = 2.0,
-                   std::pmr::memory_resource *mr = nullptr);
+Value spectralFlux(const Value &x, const Value &f, keel::f64 p = 2.0,
+                   keel::Allocator *mr = nullptr);
 
 /// Full form: NormType p, optional previous-spectrum state in / final
 /// spectrum state out (M×1 columns, frequency-domain form only), the
 /// SpectrumType selector ('power' default, 'magnitude' = sqrt-scaled
 /// spectrum), and the internal-STFT name-value options.
-Value spectralFluxFull(const Value &x, const Value &f, double p,
+Value spectralFluxFull(const Value &x, const Value &f, keel::f64 p,
                        const Value *initialCondition, Value *finalCondition,
                        bool magnitudeSpectrum,
                        const StftOptions &stft = {},
-                       std::pmr::memory_resource *mr = nullptr);
+                       keel::Allocator *mr = nullptr);
 
 // ─────────────────────────────────────────────────────────────────────
 // Shape statistics. Frequency moments (kurtosis / skewness) use the
@@ -101,38 +102,38 @@ Value spectralFluxFull(const Value &x, const Value &f, double p,
 
 /// @brief Spectral crest — `max(X) / mean(X)` per frame.
 Value spectralCrest(const Value &x, const Value &f,
-                    std::pmr::memory_resource *mr = nullptr);
+                    keel::Allocator *mr = nullptr);
 Value spectralCrest(const Value &x, const Value &f,
                     const StftOptions &stft,
-                    std::pmr::memory_resource *mr = nullptr);
+                    keel::Allocator *mr = nullptr);
 
 /// @brief Spectral entropy — Shannon entropy of normalised spectrum.
 Value spectralEntropy(const Value &x, const Value &f,
-                      std::pmr::memory_resource *mr = nullptr);
+                      keel::Allocator *mr = nullptr);
 Value spectralEntropy(const Value &x, const Value &f,
                       const StftOptions &stft,
-                      std::pmr::memory_resource *mr = nullptr);
+                      keel::Allocator *mr = nullptr);
 
 /// @brief Spectral flatness — `geomean(X) / mean(X)`.
 Value spectralFlatness(const Value &x, const Value &f,
-                       std::pmr::memory_resource *mr = nullptr);
+                       keel::Allocator *mr = nullptr);
 Value spectralFlatness(const Value &x, const Value &f,
                        const StftOptions &stft,
-                       std::pmr::memory_resource *mr = nullptr);
+                       keel::Allocator *mr = nullptr);
 
 /// @brief Spectral kurtosis — X-weighted 4th central moment.
 Value spectralKurtosis(const Value &x, const Value &f,
-                       std::pmr::memory_resource *mr = nullptr);
+                       keel::Allocator *mr = nullptr);
 Value spectralKurtosis(const Value &x, const Value &f,
                        const StftOptions &stft,
-                       std::pmr::memory_resource *mr = nullptr);
+                       keel::Allocator *mr = nullptr);
 
 /// @brief Spectral skewness — X-weighted 3rd central moment.
 Value spectralSkewness(const Value &x, const Value &f,
-                       std::pmr::memory_resource *mr = nullptr);
+                       keel::Allocator *mr = nullptr);
 Value spectralSkewness(const Value &x, const Value &f,
                        const StftOptions &stft,
-                       std::pmr::memory_resource *mr = nullptr);
+                       keel::Allocator *mr = nullptr);
 
 
 /// @}

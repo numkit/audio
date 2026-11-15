@@ -17,59 +17,62 @@
 
 #pragma once
 
-#include <numkit/value/scratch.hpp>
+#include <keel/core.h>
+#include <keel/memory.h>
+#include <keel/arena.h>
+#include <keel/complex.h>
+#include <keel/math.h>
 #include <numkit/value/value.hpp>
 #include <numkit/signal/transforms/fft.hpp>
 
-#include <complex>
 #include <cstddef>
 
 namespace numkit::audio::detail {
 
-inline void fftPowerHalf(std::pmr::memory_resource *mr,
-                         const double *x, std::size_t N,
+inline void fftPowerHalf(keel::Allocator *mr,
+                         const double *x, keel::usize N,
                          double *out_pow_half)
 {
-    ScratchArena arena(mr);
-    Value frame = Value::matrix(N, 1, ValueType::DOUBLE, &arena);
+    keel::ArenaTemp arena = keel::get_scratch(mr);
+    Value frame = Value::matrix(N, 1, ValueType::DOUBLE, arena.allocator());
     double *fd = frame.doubleDataMut();
-    for (std::size_t i = 0; i < N; ++i) fd[i] = x[i];
-    Value Y = signal::fft(frame, -1, 0, &arena);
-    const std::complex<double> *Yd = Y.complexData();
-    const std::size_t H = N / 2 + 1;
-    for (std::size_t k = 0; k < H; ++k) out_pow_half[k] = std::norm(Yd[k]);
+    for (keel::usize i = 0; i < N; ++i) fd[i] = x[i];
+    Value Y = signal::fft(frame, -1, 0, arena.allocator());
+    const keel::c64 *Yd = Y.complexData();
+    const keel::usize H = N / 2 + 1;
+    for (keel::usize k = 0; k < H; ++k) out_pow_half[k] = keel::norm(Yd[k]);
 }
 
-inline void fftMagHalf(std::pmr::memory_resource *mr,
-                       const double *x, std::size_t N,
+inline void fftMagHalf(keel::Allocator *mr,
+                       const double *x, keel::usize N,
                        double *out_mag_half)
 {
-    ScratchArena arena(mr);
-    Value frame = Value::matrix(N, 1, ValueType::DOUBLE, &arena);
+    keel::ArenaTemp arena = keel::get_scratch(mr);
+    Value frame = Value::matrix(N, 1, ValueType::DOUBLE, arena.allocator());
     double *fd = frame.doubleDataMut();
-    for (std::size_t i = 0; i < N; ++i) fd[i] = x[i];
-    Value Y = signal::fft(frame, -1, 0, &arena);
-    const std::complex<double> *Yd = Y.complexData();
-    const std::size_t H = N / 2 + 1;
-    for (std::size_t k = 0; k < H; ++k) out_mag_half[k] = std::abs(Yd[k]);
+    for (keel::usize i = 0; i < N; ++i) fd[i] = x[i];
+    Value Y = signal::fft(frame, -1, 0, arena.allocator());
+    const keel::c64 *Yd = Y.complexData();
+    const keel::usize H = N / 2 + 1;
+    for (keel::usize k = 0; k < H; ++k) out_mag_half[k] = keel::abs(Yd[k]);
 }
 
 // Arbitrary-FFT-length variant: frame of frameLen samples zero-padded
 // (or truncated, never in practice — callers reject nfft < frameLen)
 // to nfft before the transform; out_half has nfft/2+1 power bins.
-inline void fftPowerHalfN(std::pmr::memory_resource *mr,
-                          const double *x, std::size_t frameLen,
-                          std::size_t nfft, double *out_pow_half)
+inline void fftPowerHalfN(keel::Allocator *mr,
+                          const double *x, keel::usize frameLen,
+                          keel::usize nfft, double *out_pow_half)
 {
-    ScratchArena arena(mr);
-    Value frame = Value::matrix(nfft, 1, ValueType::DOUBLE, &arena);
+    keel::ArenaTemp arena = keel::get_scratch(mr);
+    Value frame = Value::matrix(nfft, 1, ValueType::DOUBLE, arena.allocator());
     double *fd = frame.doubleDataMut();
-    const std::size_t n = frameLen < nfft ? frameLen : nfft;
-    for (std::size_t i = 0; i < n; ++i) fd[i] = x[i];
-    Value Y = signal::fft(frame, -1, 0, &arena);
-    const std::complex<double> *Yd = Y.complexData();
-    const std::size_t H = nfft / 2 + 1;
-    for (std::size_t k = 0; k < H; ++k) out_pow_half[k] = std::norm(Yd[k]);
+    const keel::usize n = frameLen < nfft ? frameLen : nfft;
+    for (keel::usize i = 0; i < n; ++i) fd[i] = x[i];
+    Value Y = signal::fft(frame, -1, 0, arena.allocator());
+    const keel::c64 *Yd = Y.complexData();
+    const keel::usize H = nfft / 2 + 1;
+    for (keel::usize k = 0; k < H; ++k) out_pow_half[k] = keel::norm(Yd[k]);
 }
 
 } // namespace numkit::audio::detail

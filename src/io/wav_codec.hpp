@@ -5,30 +5,32 @@
 
 #pragma once
 
+#include <keel/core.h>
+#include <keel/memory.h>
 #include <numkit/audio/io/audio_io.hpp>
 
 namespace numkit::audio {
 
 /// Sniff RIFF/WAVE header directly from an in-memory buffer.
-bool isWavBytes(const std::uint8_t *data, std::size_t len);
+bool isWavBytes(const keel::u8 *data, keel::usize len);
 bool isWavBytes(const std::string &b);
 
 /// Decode WAV audio from in-memory byte buffer.
 /// @param startSample 1-based start sample index (inclusive). 1 = beginning.
 /// @param endSample   1-based end sample index (inclusive). -1 = end of stream.
 /// @param nativeType  If true, returns native integer/float ValueType instead of double.
-AudioData readWav(const std::uint8_t *data, std::size_t len,
-                  int64_t startSample = 1, int64_t endSample = -1,
+AudioData readWav(const keel::u8 *data, keel::usize len,
+                  keel::i64 startSample = 1, keel::i64 endSample = -1,
                   bool nativeType = false,
-                  std::pmr::memory_resource *mr = nullptr);
+                  keel::Allocator *mr = nullptr);
 
 /// Peek WAV metadata without decoding sample data.
-AudioInfo peekWav(const std::uint8_t *data, std::size_t len);
+AudioInfo peekWav(const keel::u8 *data, keel::usize len);
 
 /// Encode audio matrix `y` (N x C) to in-memory WAV byte stream.
 /// @param bitsPerSample 8, 16, 24, or 32 (32-bit floats encoded as IEEE Float format 3).
-std::vector<std::uint8_t> writeWavToBytes(const Value &y, double sampleRate,
-                                          uint16_t bitsPerSample = 16,
+std::vector<keel::u8> writeWavToBytes(const Value &y, double sampleRate,
+                                          keel::u16 bitsPerSample = 16,
                                           const std::string &title = "",
                                           const std::string &artist = "",
                                           const std::string &comment = "");

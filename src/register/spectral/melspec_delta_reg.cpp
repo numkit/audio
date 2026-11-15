@@ -7,6 +7,8 @@
 // melSpectrogram compute reconciled to the canonical mr-last API (matching
 // the header) as part of this split. Phase 2b — see project_layering_refactor.
 
+#include <keel/core.h>
+#include <keel/ref.h>
 #include <numkit/audio/spectral/melspec_delta.hpp>
 
 #include <numkit/sys/plugin.hpp>   // CallContext, ctx.engine->resource()
@@ -18,22 +20,22 @@
 namespace numkit::audio {
 namespace detail {
 
-void melSpectrogram_reg(Span<const Value> args, size_t nargout,
-                        Span<Value> outs, CallContext &ctx)
+void melSpectrogram_reg(keel::ArrayRef<Value> args, keel::usize nargout,
+                        keel::MutArrayRef<Value> outs, CallContext &ctx)
 {
     argcheck::checkNargin(args.size(), 2, 3, "melSpectrogram");
     int numBands = 32;
     if (args.size() >= 3) numBands = argcheck::expectedPositiveInteger(
         argcheck::expectedReal(args[2], 3, "numBands", "melSpectrogram"), 3, "numBands", "melSpectrogram");
     auto [S, F, T] = melSpectrogram(args[0], args[1].toScalar(), numBands,
-                                     ctx.engine->resource());
+                                     ctx.engine->allocator());
     outs[0] = S;
     if (nargout >= 2 && outs.size() >= 2) outs[1] = F;
     if (nargout >= 3 && outs.size() >= 3) outs[2] = T;
 }
 
-void audioDelta_reg(Span<const Value> args, size_t nargout,
-                    Span<Value> outs, CallContext &ctx)
+void audioDelta_reg(keel::ArrayRef<Value> args, keel::usize nargout,
+                    keel::MutArrayRef<Value> outs, CallContext &ctx)
 {
     // Probed R2025b: (x[, windowLength[, initialCondition]]) with an
     // optional second output (finalCondition).
@@ -48,7 +50,7 @@ void audioDelta_reg(Span<const Value> args, size_t nargout,
     Value fc;
     Value *fcOut = (nargout >= 2) ? &fc : nullptr;
     outs[0] = audioDeltaFull(args[0], wl, ic, fcOut,
-                             ctx.engine->resource());
+                             ctx.engine->allocator());
     if (fcOut && outs.size() >= 2) outs[1] = std::move(fc);
 }
 

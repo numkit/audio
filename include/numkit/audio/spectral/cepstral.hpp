@@ -6,7 +6,8 @@
 
 #pragma once
 
-#include <memory_resource>
+#include <keel/core.h>
+#include <keel/memory.h>
 #include <numkit/value/value.hpp>
 #include <tuple>
 
@@ -34,7 +35,7 @@ enum class CepstralRect { Log, CubicRoot, None };
 Value cepstralCoefficients(const Value &                S,
                            int                          numCoeffs = 13,
                            CepstralRect                 rect      = CepstralRect::Log,
-                           std::pmr::memory_resource *  mr        = nullptr);
+                           keel::Allocator *  mr        = nullptr);
 
 /// Mel-frequency cepstral coefficients (MFCC).
 ///
@@ -57,9 +58,9 @@ Value cepstralCoefficients(const Value &                S,
 /// @see cepstralCoefficients, audioDelta, gtcc
 std::tuple<Value, Value, Value>
 mfcc(const Value &                x,
-     double                       fs,
+     keel::f64                       fs,
      int                          numCoeffs = 13,
-     std::pmr::memory_resource *  mr        = nullptr);
+     keel::Allocator *  mr        = nullptr);
 
 /// Gammatone cepstral coefficients (GTCC).
 ///
@@ -78,9 +79,9 @@ mfcc(const Value &                x,
 /// @see mfcc, hz2erb
 std::tuple<Value, Value, Value>
 gtcc(const Value &                x,
-     double                       fs,
+     keel::f64                       fs,
      int                          numCoeffs = 13,
-     std::pmr::memory_resource *  mr        = nullptr);
+     keel::Allocator *  mr        = nullptr);
 
 
 /// @}

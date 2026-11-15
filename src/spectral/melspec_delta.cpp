@@ -25,6 +25,10 @@
 // chirp-z for non-pow2 winLen). The 'periodic' hamming definition
 // (cos arg 2π·n/N rather than 2π·n/(N-1)) matches MATLAB exactly.
 
+#include <keel/core.h>
+#include <keel/memory.h>
+#include <keel/arena.h>
+#include <keel/array.h>
 #include <numkit/audio/spectral/melspec_delta.hpp>
 
 // Compute-only TU: Value substrate + Error, no engine. The melSpectrogram
@@ -33,7 +37,6 @@
 #include <numkit/value/argcheck.hpp>
 #include <numkit/value/value.hpp>
 #include <numkit/value/error.hpp>
-#include <numkit/value/scratch.hpp>
 
 #include "fft_one_sided.hpp"
 
@@ -51,9 +54,9 @@ namespace {
 
 // Periodic Hamming window: w[n] = 0.54 - 0.46 * cos(2π·n / N), n=0..N-1.
 // (Symmetric Hamming would use N-1 in the denominator.)
-void hammingPeriodic(double *w, size_t N)
+void hammingPeriodic(double *w, keel::usize N)
 {
-    for (size_t n = 0; n < N; ++n)
+    for (keel::usize n = 0; n < N; ++n)
         w[n] = 0.54 - 0.46 * std::cos(2.0 * M_PI * static_cast<double>(n)
                                         / static_cast<double>(N));
 }
@@ -70,11 +73,11 @@ struct MelFB {
     Value F;         // 1 × NumBands center frequencies (Hz)
 };
 
-MelFB designMelFilterBank(std::pmr::memory_resource *mr,
+MelFB designMelFilterBank(keel::Allocator *mr,
                            double fs, int numBands, int fftLen)
 {
-    const size_t M = static_cast<size_t>(numBands);
-    const size_t H = static_cast<size_t>(fftLen / 2 + 1);
+    const keel::usize M = static_cast<keel::usize>(numBands);
+    const keel::usize H = static_cast<keel::usize>(fftLen / 2 + 1);
     const double melMax = hzToMel(fs * 0.5);
 
     // Build mel edges: numBands+2 equally spaced from 0 to melMax.
@@ -90,7 +93,7 @@ MelFB designMelFilterBank(std::pmr::memory_resource *mr,
     // Bin frequency for each FFT bin k: fk = k * fs / fftLen.
     // Triangle for band b spans (mel_edge[b-1], mel_edge[b+1]) with peak
     // at mel_edge[b]. Convert edges to Hz, then to bin index.
-    for (size_t b = 0; b < M; ++b) {
+    for (keel::usize b = 0; b < M; ++b) {
         const double m_lo = static_cast<double>(b)     / static_cast<double>(M + 1) * melMax;
         const double m_ce = static_cast<double>(b + 1) / static_cast<double>(M + 1) * melMax;
         const double m_hi = static_cast<double>(b + 2) / static_cast<double>(M + 1) * melMax;
@@ -99,7 +102,7 @@ MelFB designMelFilterBank(std::pmr::memory_resource *mr,
         const double f_hi = melToHz(m_hi);
         fd[b] = f_ce;
 
-        for (size_t k = 0; k < H; ++k) {
+        for (keel::usize k = 0; k < H; ++k) {
             const double f = static_cast<double>(k) * fs / static_cast<double>(fftLen);
             double val = 0.0;
             if (f >= f_lo && f <= f_ce && f_ce > f_lo)
@@ -112,7 +115,7 @@ MelFB designMelFilterBank(std::pmr::memory_resource *mr,
         const double bw = f_hi - f_lo;
         if (bw > 0.0) {
             const double inv = 2.0 / bw;  // factor matches MATLAB area=2/bw
-            for (size_t k = 0; k < H; ++k)
+            for (keel::usize k = 0; k < H; ++k)
                 fbd[b + k * M] *= inv;
         }
     }
@@ -151,17 +154,17 @@ void audioDelta_argcheck(const Value &x, int windowLength)
 
 std::tuple<Value, Value, Value>
 melSpectrogram(const Value &x, double fs, int numBands,
-               std::pmr::memory_resource *mr)
+               keel::Allocator *mr)
 {
     melSpectrogram_argcheck(x, fs, numBands);
-    const size_t N = x.numel();
-    const size_t winLen  = static_cast<size_t>(std::round(fs * 0.03));
-    const size_t overlap = static_cast<size_t>(std::round(fs * 0.02));
-    const size_t hop = winLen - overlap;
-    const size_t fftLen = winLen;
-    const size_t H = fftLen / 2 + 1;
-    const size_t numFrames = (N >= winLen) ? ((N - winLen) / hop + 1) : 0;
-    const size_t M = static_cast<size_t>(numBands);
+    const keel::usize N = x.numel();
+    const keel::usize winLen  = static_cast<keel::usize>(std::round(fs * 0.03));
+    const keel::usize overlap = static_cast<keel::usize>(std::round(fs * 0.02));
+    const keel::usize hop = winLen - overlap;
+    const keel::usize fftLen = winLen;
+    const keel::usize H = fftLen / 2 + 1;
+    const keel::usize numFrames = (N >= winLen) ? ((N - winLen) / hop + 1) : 0;
+    const keel::usize M = static_cast<keel::usize>(numBands);
 
     Value S = Value::matrix(M, numFrames, ValueType::DOUBLE, mr);
     Value F = Value::matrix(1, M, ValueType::DOUBLE, mr);
@@ -169,16 +172,16 @@ melSpectrogram(const Value &x, double fs, int numBands,
 
     if (numFrames == 0 || winLen == 0 || M == 0) return {S, F, T};
 
-    ScratchArena scratch(mr);
-    ScratchVec<double> win(winLen, &scratch);
+    keel::ArenaTemp scratch = keel::get_scratch(mr);
+    keel::Array<double> win(winLen, scratch.allocator());
     hammingPeriodic(win.data(), winLen);
 
     // WindowNormalization (power form): win /= sqrt(0.5 * sum(win)^2)
     double sumW = 0.0;
-    for (size_t i = 0; i < winLen; ++i) sumW += win[i];
+    for (keel::usize i = 0; i < winLen; ++i) sumW += win[i];
     const double scale = std::sqrt(0.5 * sumW * sumW);
     if (scale > 0.0)
-        for (size_t i = 0; i < winLen; ++i) win[i] /= scale;
+        for (keel::usize i = 0; i < winLen; ++i) win[i] /= scale;
 
     // Filterbank
     auto fb = designMelFilterBank(mr, fs, numBands, static_cast<int>(fftLen));
@@ -187,22 +190,22 @@ melSpectrogram(const Value &x, double fs, int numBands,
 
     // Time vector.
     double *td = T.doubleDataMut();
-    for (size_t f = 0; f < numFrames; ++f)
+    for (keel::usize f = 0; f < numFrames; ++f)
         td[f] = (static_cast<double>(f * hop) + static_cast<double>(winLen) / 2.0) / fs;
 
     // Per-frame: window, FFT, power, mel-filterbank.
-    ScratchVec<double> frame(winLen, &scratch);
-    ScratchVec<double> pow_half(H, &scratch);
+    keel::Array<double> frame(winLen, scratch.allocator());
+    keel::Array<double> pow_half(H, scratch.allocator());
     double *Sd = S.doubleDataMut();
-    for (size_t f = 0; f < numFrames; ++f) {
-        const size_t start = f * hop;
-        for (size_t i = 0; i < winLen; ++i)
+    for (keel::usize f = 0; f < numFrames; ++f) {
+        const keel::usize start = f * hop;
+        for (keel::usize i = 0; i < winLen; ++i)
             frame[i] = x.elemAsDouble(start + i) * win[i];
         detail::fftPowerHalf(mr, frame.data(), winLen, pow_half.data());
         // Apply filterbank: S(b, f) = Σ FB(b, k) * pow(k)
-        for (size_t b = 0; b < M; ++b) {
+        for (keel::usize b = 0; b < M; ++b) {
             double s = 0.0;
-            for (size_t k = 0; k < H; ++k) s += fbd[b + k * M] * pow_half[k];
+            for (keel::usize k = 0; k < H; ++k) s += fbd[b + k * M] * pow_half[k];
             Sd[b + f * M] = s;
         }
     }
@@ -222,7 +225,7 @@ melSpectrogram(const Value &x, double fs, int numBands,
 // with zi shaped (windowLength-1) × channels.
 Value audioDeltaFull(const Value &x, int windowLength,
                      const Value *initialCondition, Value *finalCondition,
-                     std::pmr::memory_resource *mr)
+                     keel::Allocator *mr)
 {
     audioDelta_argcheck(x, windowLength);
 
@@ -231,20 +234,20 @@ Value audioDeltaFull(const Value &x, int windowLength,
     double denom = 0.0;
     for (int i = 1; i <= M; ++i) denom += static_cast<double>(i * i);
     if (denom <= 0.0) denom = 1.0;
-    const size_t L = static_cast<size_t>(windowLength);
+    const keel::usize L = static_cast<keel::usize>(windowLength);
 
     const bool wantSingle = x.type() == ValueType::SINGLE;
     const Dims &d = x.dims();
-    const size_t R = d.dim(0);
+    const keel::usize R = d.dim(0);
     // Channels = columns × pages × … (everything after dim 1).
-    size_t C = 1;
+    keel::usize C = 1;
     for (int k = 1; k < d.ndim(); ++k) C *= d.dim(k);
     Value out;
     if (d.ndim() <= 2)
         out = Value::matrix(R, C, wantSingle ? ValueType::SINGLE
                                              : ValueType::DOUBLE, mr);
     else {
-        std::vector<size_t> od(d.ndim());
+        std::vector<keel::usize> od(d.ndim());
         od[0] = R;
         for (int k = 1; k < d.ndim(); ++k) od[k] = d.dim(k);
         out = Value::matrixND(od.data(), static_cast<int>(od.size()),
@@ -274,14 +277,14 @@ Value audioDeltaFull(const Value &x, int windowLength,
                         "numkit:audioDelta:BadInitialConditions");
     }
 
-    ScratchArena scratch(mr);
-    ScratchVec<double> b(L, &scratch);
-    for (size_t k = 0; k < L; ++k)
+    keel::ArenaTemp scratch = keel::get_scratch(mr);
+    keel::Array<double> b(L, scratch.allocator());
+    for (keel::usize k = 0; k < L; ++k)
         b[k] = static_cast<double>(M - static_cast<int>(k)) / denom;
     // Filter delay line, (L-1) per channel — zero-initialised, or seeded
     // from initialCondition (MATLAB filter zi convention).
-    ScratchVec<double> z((L - 1) * C, &scratch);
-    for (std::size_t i = 0; i < z.size(); ++i) {
+    keel::Array<double> z((L - 1) * C, scratch.allocator());
+    for (keel::usize i = 0; i < z.size(); ++i) {
         if (!haveZi)
             z[i] = 0.0;
         else if (singleState)
@@ -292,13 +295,13 @@ Value audioDeltaFull(const Value &x, int windowLength,
 
     double *od = wantSingle ? nullptr : out.doubleDataMut();
     float *of = wantSingle ? out.singleDataMut() : nullptr;
-    for (size_t c = 0; c < C; ++c) {
+    for (keel::usize c = 0; c < C; ++c) {
         double *zc = z.data() + c * (L - 1);
-        for (size_t n = 0; n < R; ++n) {
+        for (keel::usize n = 0; n < R; ++n) {
             const double xv = x.elemAsDouble(n + c * R);
             // Direct-form II transposed step: y = b0·x + z1, then shift.
             const double y = b[0] * xv + (L > 1 ? zc[0] : 0.0);
-            for (size_t k = 0; k + 2 < L; ++k)
+            for (keel::usize k = 0; k + 2 < L; ++k)
                 zc[k] = b[k + 1] * xv + zc[k + 1];
             if (L > 1) zc[L - 2] = b[L - 1] * xv;
             if (of) of[n + c * R] = static_cast<float>(y);
@@ -313,7 +316,7 @@ Value audioDeltaFull(const Value &x, int windowLength,
                                                    : ValueType::DOUBLE, mr);
         double *fd = wantSingle ? nullptr : finalCondition->doubleDataMut();
         float *ff = wantSingle ? finalCondition->singleDataMut() : nullptr;
-        for (std::size_t i = 0; i < (L - 1) * C; ++i) {
+        for (keel::usize i = 0; i < (L - 1) * C; ++i) {
             const double v = z[i];
             if (ff) ff[i] = static_cast<float>(v);
             else    fd[i] = v;
@@ -322,7 +325,7 @@ Value audioDeltaFull(const Value &x, int windowLength,
     return out;
 }
 
-Value audioDelta(const Value &x, int windowLength, std::pmr::memory_resource *mr)
+Value audioDelta(const Value &x, int windowLength, keel::Allocator *mr)
 {
     return audioDeltaFull(x, windowLength, nullptr, nullptr, mr);
 }
