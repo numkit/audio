@@ -35,7 +35,7 @@ void cepstralCoefficients_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*
                         "at argument " + std::to_string(i + 1) + ".",
                         0, 0, "cepstralCoefficients", "",
                         "numkit:cepstralCoefficients:nargin");
-        std::string name = args[i].toString();
+        std::string name(args[i].toString().as_ref());
         for (auto &c : name)
             c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
         if (name == "numcoeffs" || name == "num") {
@@ -44,7 +44,7 @@ void cepstralCoefficients_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*
                                        "cepstralCoefficients"),
                 i + 2, "NumCoeffs", "cepstralCoefficients");
         } else if (name == "rectification" || name == "rect") {
-            std::string val = args[i + 1].toString();
+            std::string val(args[i + 1].toString().as_ref());
             for (auto &c : val)
                 c = static_cast<char>(std::tolower(
                     static_cast<unsigned char>(c)));

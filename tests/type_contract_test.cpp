@@ -17,7 +17,7 @@ public:
     numkit::StandardEngine engine;
     numkit::Value eval(const std::string &c) { return engine.eval(c); }
     double evalScalar(const std::string &c) { return eval(c).toScalar(); }
-    std::string evalClass(const std::string &c) { return eval(c).toString(); }
+    std::string evalClass(const std::string &c) { return std::string(eval(c).toString().as_ref()); }
     bool throws(const std::string &c)
     {
         try { eval(c); } catch (...) { return true; }

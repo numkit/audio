@@ -44,11 +44,11 @@ void pitch_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/,
     for (keel::usize i = 2; i + 1 < args.size(); i += 2) {
         if (args[i].type() != ValueType::CHAR && args[i].type() != ValueType::STRING)
             continue;
-        std::string name = args[i].toString();
+        std::string name(args[i].toString().as_ref());
         std::transform(name.begin(), name.end(), name.begin(),
                         [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
         if (name == "method") {
-            std::string m = args[i + 1].toString();
+            std::string m(args[i + 1].toString().as_ref());
             std::transform(m.begin(), m.end(), m.begin(),
                             [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
             method = m;

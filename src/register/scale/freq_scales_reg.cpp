@@ -47,9 +47,8 @@ namespace {
 bool isStandard532_2(const Value &v)
 {
     if (v.type() == ValueType::CHAR || v.type() == ValueType::STRING) {
-        std::string s = v.toString();
+        std::string lower(v.toString().as_ref());
         // Case-insensitive compare.
-        std::string lower = s;
         std::transform(lower.begin(), lower.end(), lower.begin(),
                         [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
         return (lower == "iso 532-2");

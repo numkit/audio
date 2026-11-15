@@ -34,7 +34,7 @@ static StftOptions parseSharedStftOptions(keel::ArrayRef<Value> args,
             throw Error(std::string(fn) + ": unexpected argument at position "
                         + std::to_string(i + 1) + ".",
                         0, 0, fn, "", std::string("numkit:") + fn + ":nargin");
-        std::string name = args[i].toString();
+        std::string name(args[i].toString().as_ref());
         for (auto &c : name)
             c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
         if (i + 1 >= args.size())
@@ -122,7 +122,7 @@ void spectralFlux_reg(keel::ArrayRef<Value> args, keel::usize nargout,
     StftOptions stft;
     for (keel::usize i = 2; i < args.size();) {
         if (args[i].isChar() || args[i].isString()) {
-            std::string name = args[i].toString();
+            std::string name(args[i].toString().as_ref());
             for (auto &c : name)
                 c = static_cast<char>(std::tolower(
                     static_cast<unsigned char>(c)));
@@ -143,7 +143,7 @@ void spectralFlux_reg(keel::ArrayRef<Value> args, keel::usize nargout,
                     throw Error("spectralFlux: SpectrumType needs a value.",
                                 0, 0, "spectralFlux", "",
                                 "numkit:spectralFlux:nargin");
-                std::string val = args[i + 1].toString();
+                std::string val(args[i + 1].toString().as_ref());
                 for (auto &c : val)
                     c = static_cast<char>(std::tolower(
                         static_cast<unsigned char>(c)));
