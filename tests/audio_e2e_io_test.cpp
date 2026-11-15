@@ -3,7 +3,7 @@
 #include <numkit/core/standard_library.hpp>
 #include <numkit/core/standard_engine.hpp>
 #include <numkit/sys/vfs.hpp>
-#include <filesystem>
+#include <keel/fs.h>
 #include <vector>
 
 using namespace numkit;
@@ -16,8 +16,7 @@ protected:
 
     void TearDown() override {
         for (const auto &f : createdFiles_) {
-            std::error_code ec;
-            std::filesystem::remove(f, ec);
+            (void)keel::fs_remove(f);
         }
     }
 
