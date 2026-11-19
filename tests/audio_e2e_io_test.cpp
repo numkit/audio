@@ -24,7 +24,7 @@ protected:
         createdFiles_.push_back(path);
     }
 
-    std::unique_ptr<Engine> engine_;
+    keel::UniquePtr<Engine> engine_;
     std::vector<std::string> createdFiles_;
 };
 
