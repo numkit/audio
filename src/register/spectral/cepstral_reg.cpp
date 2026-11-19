@@ -11,14 +11,12 @@
 #include <keel/format.h>
 #include <keel/ref.h>
 #include <keel/string.h>
+#include <keel/utf8.h>
 #include <numkit/audio/spectral/cepstral.hpp>
 
 #include <numkit/sys/plugin.hpp>   // CallContext, ctx.engine->resource()
 #include <numkit/value/argcheck.hpp>
 #include <numkit/value/error.hpp>
-
-#include <cctype>
-
 namespace numkit::audio {
 namespace detail {
 
@@ -41,7 +39,7 @@ void cepstralCoefficients_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*
                         "numkit:cepstralCoefficients:nargin");
         keel::String name = args[i].toString();
         for (auto &c : name)
-            c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            c = keel::to_ascii_lower(c);
         if (name == "numcoeffs" || name == "num") {
             nc = argcheck::expectedPositiveInteger(
                 argcheck::expectedReal(args[i + 1], i + 2, "NumCoeffs",
@@ -50,8 +48,7 @@ void cepstralCoefficients_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*
         } else if (name == "rectification" || name == "rect") {
             keel::String val = args[i + 1].toString();
             for (auto &c : val)
-                c = static_cast<char>(std::tolower(
-                    static_cast<unsigned char>(c)));
+                c = keel::to_ascii_lower(c);
             if (val == "log") rect = CepstralRect::Log;
             else if (val == "cubic-root") rect = CepstralRect::CubicRoot;
             else if (val == "none") rect = CepstralRect::None;

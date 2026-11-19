@@ -10,6 +10,7 @@
 #include <keel/core.h>
 #include <keel/ref.h>
 #include <keel/string.h>
+#include <keel/utf8.h>
 #include <numkit/audio/features/pitch_harmonics.hpp>
 
 #include <numkit/sys/plugin.hpp>   // CallContext, ctx.engine->resource()
@@ -17,8 +18,6 @@
 #include <numkit/value/error.hpp>
 
 #include <algorithm>
-#include <cctype>
-
 namespace numkit::audio {
 namespace detail {
 
@@ -46,11 +45,11 @@ void pitch_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/,
             continue;
         keel::String name = args[i].toString();
         std::transform(name.begin(), name.end(), name.begin(),
-                        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                        [](unsigned char c) { return keel::to_ascii_lower(c); });
         if (name == "method") {
             keel::String m = args[i + 1].toString();
             std::transform(m.begin(), m.end(), m.begin(),
-                            [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+                            [](unsigned char c) { return keel::to_ascii_upper(c); });
             method = keel::move(m);
         } else if (name == "range") {
             const Value &r = args[i + 1];

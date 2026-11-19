@@ -27,8 +27,8 @@
 #include "keel/audio.h"
 #include "keel/midi.h"
 
+#include <keel/utf8.h>
 #include <algorithm>
-#include <cctype>
 #include <cmath>
 #include <cstring>
 
@@ -45,7 +45,7 @@ keel::String extensionFromPath(keel::StringRef path) {
     auto dot = path.rfind('.');
     if (dot == keel::kInvalidIndex) return keel::String{};
     keel::String ext = keel::String::from(path.substr(dot + 1));
-    for (char &c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (char &c : ext) c = keel::to_ascii_lower(c);
     return ext;
 }
 
@@ -607,7 +607,7 @@ keel::Array<keel::u8> audiowriteToBytes(const Value &y, double sampleRate,
                                         keel::StringRef artist,
                                         keel::StringRef comment) {
     keel::String fmt = keel::String::from(format);
-    for (char &c : fmt) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (char &c : fmt) c = keel::to_ascii_lower(c);
     audiowrite_argcheck(fmt.as_ref(), format);
 
     if (fmt == "wav" || fmt == "wave") {

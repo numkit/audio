@@ -7,6 +7,7 @@
 #include <keel/format.h>
 #include <keel/ref.h>
 #include <keel/string.h>
+#include <keel/utf8.h>
 #include <numkit/audio/io/audio_io.hpp>
 #include "io/midi_codec.hpp"
 
@@ -16,7 +17,6 @@
 #include <numkit/value/value.hpp>
 
 #include <algorithm>
-#include <cctype>
 #include <cstdint>
 
 namespace numkit::audio::detail {
@@ -27,7 +27,7 @@ keel::String lowerExt(keel::StringRef path) {
     auto dot = path.rfind('.');
     if (dot == keel::kInvalidIndex) return keel::String{};
     keel::String ext = keel::String::from(path.substr(dot + 1));
-    for (char &c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (char &c : ext) c = keel::to_ascii_lower(c);
     return ext;
 }
 
@@ -50,7 +50,7 @@ void audioread_reg(keel::ArrayRef<Value> args, keel::usize nargout, keel::MutArr
     for (keel::usize i = 1; i < args.size(); ++i) {
         if (args[i].isChar() || args[i].isString()) {
             keel::String opt = args[i].toString();
-            for (char &c : opt) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            for (char &c : opt) c = keel::to_ascii_lower(c);
             if (opt == "native") nativeType = true;
             else if (opt == "double") nativeType = false;
         } else if (args[i].isNumeric()) {
@@ -108,7 +108,7 @@ void audiowrite_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::M
     for (keel::usize i = 3; i + 1 < args.size(); i += 2) {
         if (!args[i].isChar() && !args[i].isString()) continue;
         keel::String key = args[i].toString();
-        for (char &c : key) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        for (char &c : key) c = keel::to_ascii_lower(c);
 
         if (key == "bitspersample") {
             if (args[i+1].isNumeric()) {

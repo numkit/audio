@@ -13,13 +13,12 @@
 #include <keel/format.h>
 #include <keel/ref.h>
 #include <keel/string.h>
+#include <keel/utf8.h>
 #include <numkit/audio/spectral/shape_descriptors.hpp>
 
 #include <numkit/sys/plugin.hpp>   // CallContext, ctx.engine->resource()
 #include <numkit/value/argcheck.hpp>
 #include <numkit/value/error.hpp>
-
-#include <cctype>
 #include <utility>
 
 namespace numkit::audio {
@@ -37,7 +36,7 @@ static StftOptions parseSharedStftOptions(keel::ArrayRef<Value> args,
                         0, 0, fn, "", keel::format("numkit:{}:nargin", fn));
         keel::String name = args[i].toString();
         for (auto &c : name)
-            c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            c = keel::to_ascii_lower(c);
         if (i + 1 >= args.size())
             throw Error(keel::format("{}: '{}' needs a value.", fn, name),
                         0, 0, fn, "", keel::format("numkit:{}:nargin", fn));
@@ -124,8 +123,7 @@ void spectralFlux_reg(keel::ArrayRef<Value> args, keel::usize nargout,
         if (args[i].isChar() || args[i].isString()) {
             keel::String name = args[i].toString();
             for (auto &c : name)
-                c = static_cast<char>(std::tolower(
-                    static_cast<unsigned char>(c)));
+                c = keel::to_ascii_lower(c);
             if (name == "normtype" || name == "norm") {
                 if (i + 1 >= args.size())
                     throw Error("spectralFlux: NormType needs a value.",
@@ -145,8 +143,7 @@ void spectralFlux_reg(keel::ArrayRef<Value> args, keel::usize nargout,
                                 "numkit:spectralFlux:nargin");
                 keel::String val = args[i + 1].toString();
                 for (auto &c : val)
-                    c = static_cast<char>(std::tolower(
-                        static_cast<unsigned char>(c)));
+                    c = keel::to_ascii_lower(c);
                 // validatestring: the value may be any unambiguous
                 // case-insensitive prefix of a valid name.
                 const bool isPow = keel::StringRef("power").starts_with(val.as_ref());

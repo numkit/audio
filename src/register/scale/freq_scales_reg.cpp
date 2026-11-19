@@ -12,6 +12,7 @@
 #include <keel/core.h>
 #include <keel/ref.h>
 #include <keel/string.h>
+#include <keel/utf8.h>
 #include <numkit/audio/scale/freq_scales.hpp>
 
 #include <numkit/sys/plugin.hpp>   // CallContext, ctx.engine->resource()
@@ -19,8 +20,6 @@
 #include <numkit/value/error.hpp>
 
 #include <algorithm>
-#include <cctype>
-
 namespace numkit::audio {
 namespace detail {
 
@@ -50,7 +49,7 @@ bool isStandard532_2(const Value &v)
         keel::String lower = v.toString();
         // Case-insensitive compare.
         std::transform(lower.begin(), lower.end(), lower.begin(),
-                        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                        [](unsigned char c) { return keel::to_ascii_lower(c); });
         return (lower == "iso 532-2");
     }
     return false;
