@@ -8,12 +8,16 @@
 // Phase 2b compute/register split — see project_layering_refactor memory.
 
 #include <keel/core.h>
+#include <keel/format.h>
 #include <keel/ref.h>
+#include <keel/string.h>
 #include <numkit/audio/spectral/cepstral.hpp>
 
 #include <numkit/sys/plugin.hpp>   // CallContext, ctx.engine->resource()
 #include <numkit/value/argcheck.hpp>
 #include <numkit/value/error.hpp>
+
+#include <cctype>
 
 namespace numkit::audio {
 namespace detail {
@@ -31,11 +35,11 @@ void cepstralCoefficients_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*
     const Value &S = args[0];
     for (keel::usize i = 1; i < args.size(); i += 2) {
         if (!(args[i].isChar() || args[i].isString()) || i + 1 >= args.size())
-            throw Error("cepstralCoefficients: expected a name-value pair "
-                        "at argument " + std::to_string(i + 1) + ".",
+            throw Error(keel::format("cepstralCoefficients: expected a name-value pair "
+                                     "at argument {}.", i + 1),
                         0, 0, "cepstralCoefficients", "",
                         "numkit:cepstralCoefficients:nargin");
-        std::string name(args[i].toString().as_ref());
+        keel::String name = args[i].toString();
         for (auto &c : name)
             c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
         if (name == "numcoeffs" || name == "num") {
@@ -44,7 +48,7 @@ void cepstralCoefficients_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*
                                        "cepstralCoefficients"),
                 i + 2, "NumCoeffs", "cepstralCoefficients");
         } else if (name == "rectification" || name == "rect") {
-            std::string val(args[i + 1].toString().as_ref());
+            keel::String val = args[i + 1].toString();
             for (auto &c : val)
                 c = static_cast<char>(std::tolower(
                     static_cast<unsigned char>(c)));
@@ -52,14 +56,13 @@ void cepstralCoefficients_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*
             else if (val == "cubic-root") rect = CepstralRect::CubicRoot;
             else if (val == "none") rect = CepstralRect::None;
             else
-                throw Error("cepstralCoefficients: Rectification must be "
-                            "'log', 'cubic-root' or 'none' (got '" + val + "').",
+                throw Error(keel::format("cepstralCoefficients: Rectification must be "
+                                         "'log', 'cubic-root' or 'none' (got '{}').", val),
                             0, 0, "cepstralCoefficients", "",
                             "numkit:cepstralCoefficients:rectification");
         } else {
-            throw Error("cepstralCoefficients: unrecognized name-value "
-                        "argument '" + name + "' (expected NumCoeffs or "
-                        "Rectification).",
+            throw Error(keel::format("cepstralCoefficients: unrecognized name-value "
+                                     "argument '{}' (expected NumCoeffs or Rectification).", name),
                         0, 0, "cepstralCoefficients", "",
                         "numkit:cepstralCoefficients:TooManyInputs");
         }

@@ -10,14 +10,16 @@
 // part of this split. Phase 2b — see project_layering_refactor memory.
 
 #include <keel/core.h>
+#include <keel/format.h>
 #include <keel/ref.h>
+#include <keel/string.h>
 #include <numkit/audio/spectral/shape_descriptors.hpp>
 
 #include <numkit/sys/plugin.hpp>   // CallContext, ctx.engine->resource()
 #include <numkit/value/argcheck.hpp>
 #include <numkit/value/error.hpp>
 
-#include <string>
+#include <cctype>
 #include <utility>
 
 namespace numkit::audio {
@@ -31,15 +33,14 @@ static StftOptions parseSharedStftOptions(keel::ArrayRef<Value> args,
     StftOptions stft;
     for (keel::usize i = startIdx; i < args.size();) {
         if (!args[i].isChar() && !args[i].isString())
-            throw Error(std::string(fn) + ": unexpected argument at position "
-                        + std::to_string(i + 1) + ".",
-                        0, 0, fn, "", std::string("numkit:") + fn + ":nargin");
-        std::string name(args[i].toString().as_ref());
+            throw Error(keel::format("{}: unexpected argument at position {}.", fn, i + 1),
+                        0, 0, fn, "", keel::format("numkit:{}:nargin", fn));
+        keel::String name = args[i].toString();
         for (auto &c : name)
             c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
         if (i + 1 >= args.size())
-            throw Error(std::string(fn) + ": '" + name + "' needs a value.",
-                        0, 0, fn, "", std::string("numkit:") + fn + ":nargin");
+            throw Error(keel::format("{}: '{}' needs a value.", fn, name),
+                        0, 0, fn, "", keel::format("numkit:{}:nargin", fn));
         if (name == "window") {
             stft.Window = args[i + 1];
             i += 2;
@@ -56,10 +57,9 @@ static StftOptions parseSharedStftOptions(keel::ArrayRef<Value> args,
             *thresholdOut = args[i + 1].toScalar();
             i += 2;
         } else {
-            throw Error(std::string(fn) + ": unrecognized name-value argument '"
-                        + name + "'.",
+            throw Error(keel::format("{}: unrecognized name-value argument '{}'.", fn, name),
                         0, 0, fn, "",
-                        std::string("numkit:") + fn + ":TooManyInputs");
+                        keel::format("numkit:{}:TooManyInputs", fn));
         }
     }
     return stft;
@@ -122,7 +122,7 @@ void spectralFlux_reg(keel::ArrayRef<Value> args, keel::usize nargout,
     StftOptions stft;
     for (keel::usize i = 2; i < args.size();) {
         if (args[i].isChar() || args[i].isString()) {
-            std::string name(args[i].toString().as_ref());
+            keel::String name = args[i].toString();
             for (auto &c : name)
                 c = static_cast<char>(std::tolower(
                     static_cast<unsigned char>(c)));
@@ -143,17 +143,17 @@ void spectralFlux_reg(keel::ArrayRef<Value> args, keel::usize nargout,
                     throw Error("spectralFlux: SpectrumType needs a value.",
                                 0, 0, "spectralFlux", "",
                                 "numkit:spectralFlux:nargin");
-                std::string val(args[i + 1].toString().as_ref());
+                keel::String val = args[i + 1].toString();
                 for (auto &c : val)
                     c = static_cast<char>(std::tolower(
                         static_cast<unsigned char>(c)));
                 // validatestring: the value may be any unambiguous
                 // case-insensitive prefix of a valid name.
-                const bool isPow = std::string("power").rfind(val, 0) == 0;
-                const bool isMag = std::string("magnitude").rfind(val, 0) == 0;
+                const bool isPow = keel::StringRef("power").starts_with(val.as_ref());
+                const bool isMag = keel::StringRef("magnitude").starts_with(val.as_ref());
                 if (isPow == isMag)
-                    throw Error("spectralFlux: SpectrumType must be "
-                                "'power' or 'magnitude' (got '" + val + "').",
+                    throw Error(keel::format("spectralFlux: SpectrumType must be "
+                                             "'power' or 'magnitude' (got '{}').", val),
                                 0, 0, "spectralFlux", "",
                                 "numkit:spectralFlux:spectrumType");
                 magnitude = isMag;
@@ -187,15 +187,13 @@ void spectralFlux_reg(keel::ArrayRef<Value> args, keel::usize nargout,
                 stft.Range = args[i + 1];
                 i += 2;
             } else {
-                throw Error("spectralFlux: unrecognized name-value "
-                            "argument '" + name + "'.",
+                throw Error(keel::format("spectralFlux: unrecognized name-value argument '{}'.", name),
                             0, 0, "spectralFlux", "",
                             "numkit:spectralFlux:TooManyInputs");
             }
         } else {
             if (ic)
-                throw Error("spectralFlux: unexpected argument at "
-                            "position " + std::to_string(i + 1) + ".",
+                throw Error(keel::format("spectralFlux: unexpected argument at position {}.", i + 1),
                             0, 0, "spectralFlux", "",
                             "numkit:spectralFlux:nargin");
             ic = &args[i];

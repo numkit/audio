@@ -4,7 +4,9 @@
 // into the NK engine with Virtual Filesystem (VFS) integration.
 
 #include <keel/core.h>
+#include <keel/format.h>
 #include <keel/ref.h>
+#include <keel/string.h>
 #include <numkit/audio/io/audio_io.hpp>
 #include "io/midi_codec.hpp"
 
@@ -16,17 +18,15 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
-#include <string>
-#include <vector>
 
 namespace numkit::audio::detail {
 
 namespace {
 
-std::string lowerExt(const std::string &path) {
-    auto dot = path.find_last_of('.');
-    if (dot == std::string::npos) return "";
-    std::string ext = path.substr(dot + 1);
+keel::String lowerExt(keel::StringRef path) {
+    auto dot = path.rfind('.');
+    if (dot == keel::kInvalidIndex) return keel::String{};
+    keel::String ext = keel::String::from(path.substr(dot + 1));
     for (char &c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     return ext;
 }
@@ -42,14 +42,14 @@ void audioread_reg(keel::ArrayRef<Value> args, keel::usize nargout, keel::MutArr
                     0, 0, "audioread", "", "numkit:audioread:type");
     }
 
-    const std::string path(args[0].toString().as_ref());
+    const keel::String path = args[0].toString();
     keel::i64 startSample = 1;
     keel::i64 endSample = -1;
     bool nativeType = false;
 
     for (keel::usize i = 1; i < args.size(); ++i) {
         if (args[i].isChar() || args[i].isString()) {
-            std::string opt(args[i].toString().as_ref());
+            keel::String opt = args[i].toString();
             for (char &c : opt) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
             if (opt == "native") nativeType = true;
             else if (opt == "double") nativeType = false;
@@ -62,9 +62,9 @@ void audioread_reg(keel::ArrayRef<Value> args, keel::usize nargout, keel::MutArr
     }
 
     // Resolve path via VFS
-    auto rp = ctx.engine->resolvePath(path);
+    auto rp = ctx.engine->resolvePath(path.as_ref());
     if (!rp.fs || !rp.fs->exists(rp.path)) {
-        throw Error("audioread: failed to read '" + path + "' — file not found",
+        throw Error(keel::format("audioread: failed to read '{}' — file not found", path),
                     0, 0, "audioread", "", "numkit:audioread:fileNotFound");
     }
 
@@ -92,22 +92,22 @@ void audiowrite_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::M
                     0, 0, "audiowrite", "", "numkit:audiowrite:data");
     }
 
-    const std::string path(args[0].toString().as_ref());
+    const keel::String path = args[0].toString();
     const Value &y = args[1];
     double sampleRate = args[2].isNumeric() ? args[2].elemAsDouble(0) : 44100.0;
 
-    std::string ext = lowerExt(path);
-    if (ext.empty()) ext = "wav";
+    keel::String ext = lowerExt(path.as_ref());
+    if (ext.empty()) ext.assign("wav");
 
     keel::u16 bitsPerSample = 16;
-    std::string title;
-    std::string artist;
-    std::string comment;
+    keel::String title;
+    keel::String artist;
+    keel::String comment;
 
     // Parse NV pairs
     for (keel::usize i = 3; i + 1 < args.size(); i += 2) {
         if (!args[i].isChar() && !args[i].isString()) continue;
-        std::string key(args[i].toString().as_ref());
+        keel::String key = args[i].toString();
         for (char &c : key) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 
         if (key == "bitspersample") {
@@ -123,15 +123,16 @@ void audiowrite_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::M
         }
     }
 
-    auto outBytes = audiowriteToBytes(y, sampleRate, ext, bitsPerSample, title, artist, comment);
+    auto outBytes = audiowriteToBytes(y, sampleRate, ext.as_ref(), bitsPerSample,
+                                      title.as_ref(), artist.as_ref(), comment.as_ref());
 
-    auto rp = ctx.engine->resolvePath(path);
+    auto rp = ctx.engine->resolvePath(path.as_ref());
     if (!rp.fs) {
-        throw Error("audiowrite: no filesystem for '" + path + "'",
+        throw Error(keel::format("audiowrite: no filesystem for '{}'", path),
                     0, 0, "audiowrite", "", "numkit:audiowrite:fs");
     }
 
-    rp.fs->writeFileBytes(rp.path, std::string(outBytes.begin(), outBytes.end()));
+    rp.fs->writeFileBytes(rp.path, keel::StringRef(reinterpret_cast<const char *>(outBytes.data()), outBytes.size()));
 }
 
 void audioinfo_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::MutArrayRef<Value> outs,
@@ -143,10 +144,10 @@ void audioinfo_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::Mu
                     0, 0, "audioinfo", "", "numkit:audioinfo:type");
     }
 
-    const std::string path(args[0].toString().as_ref());
-    auto rp = ctx.engine->resolvePath(path);
+    const keel::String path = args[0].toString();
+    auto rp = ctx.engine->resolvePath(path.as_ref());
     if (!rp.fs || !rp.fs->exists(rp.path)) {
-        throw Error("audioinfo: failed to read '" + path + "' — file not found",
+        throw Error(keel::format("audioinfo: failed to read '{}' — file not found", path),
                     0, 0, "audioinfo", "", "numkit:audioinfo:fileNotFound");
     }
 
@@ -155,17 +156,17 @@ void audioinfo_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::Mu
 
     auto *mr = ctx.engine->allocator();
     Value s = Value::structure(mr);
-    s.field("Filename")          = Value::fromString(path, mr);
-    s.field("CompressionMethod") = Value::fromString(info.compressionMethod, mr);
+    s.field("Filename")          = Value::fromString(path.as_ref(), mr);
+    s.field("CompressionMethod") = Value::fromString(info.compressionMethod.as_ref(), mr);
     s.field("NumChannels")        = Value::scalar(static_cast<double>(info.numChannels), mr);
     s.field("SampleRate")         = Value::scalar(info.sampleRate, mr);
     s.field("TotalSamples")       = Value::scalar(static_cast<double>(info.totalSamples), mr);
     s.field("Duration")           = Value::scalar(info.duration, mr);
     s.field("BitsPerSample")      = Value::scalar(static_cast<double>(info.bitsPerSample), mr);
     s.field("BitRate")            = Value::scalar(static_cast<double>(info.bitRate), mr);
-    s.field("Title")              = Value::fromString(info.title, mr);
-    s.field("Artist")             = Value::fromString(info.artist, mr);
-    s.field("Comment")            = Value::fromString(info.comment, mr);
+    s.field("Title")              = Value::fromString(info.title.as_ref(), mr);
+    s.field("Artist")             = Value::fromString(info.artist.as_ref(), mr);
+    s.field("Comment")            = Value::fromString(info.comment.as_ref(), mr);
 
     outs[0] = std::move(s);
 }
@@ -174,10 +175,10 @@ void midiread_reg(keel::ArrayRef<Value> args, keel::usize nargout, keel::MutArra
                   CallContext &ctx)
 {
     argcheck::checkNargin(args.size(), 1, 1, "midiread");
-    const std::string path(args[0].toString().as_ref());
-    auto rp = ctx.engine->resolvePath(path);
+    const keel::String path = args[0].toString();
+    auto rp = ctx.engine->resolvePath(path.as_ref());
     if (!rp.fs || !rp.fs->exists(rp.path)) {
-        throw Error("midiread: file not found: " + path,
+        throw Error(keel::format("midiread: file not found: {}", path),
                     0, 0, "midiread", "", "numkit:midiread:fileNotFound");
     }
 
@@ -194,7 +195,7 @@ void midiread_reg(keel::ArrayRef<Value> args, keel::usize nargout, keel::MutArra
         s.field("InitialTempoBpm")      = Value::scalar(mi.initialTempoBpm, mr);
         s.field("Duration")             = Value::scalar(mi.duration, mr);
         s.field("TotalNotes")           = Value::scalar(static_cast<double>(mi.totalNotes), mr);
-        s.field("TrackName")            = Value::fromString(mi.trackName, mr);
+        s.field("TrackName")            = Value::fromString(mi.trackName.as_ref(), mr);
         outs[1] = std::move(s);
     }
 }
@@ -203,7 +204,7 @@ void midiwrite_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::Mu
                    CallContext &ctx)
 {
     argcheck::checkNargin(args.size(), 2, 4, "midiwrite");
-    const std::string path(args[0].toString().as_ref());
+    const keel::String path = args[0].toString();
     const Value &notes = args[1];
 
     keel::u16 tpqn = 480;
@@ -212,22 +213,22 @@ void midiwrite_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::Mu
     if (args.size() >= 4 && args[3].isNumeric()) tempo = args[3].elemAsDouble(0);
 
     auto bytes = writeMidiToBytes(notes, tpqn, tempo);
-    auto rp = ctx.engine->resolvePath(path);
+    auto rp = ctx.engine->resolvePath(path.as_ref());
     if (!rp.fs) {
-        throw Error("midiwrite: no filesystem for '" + path + "'",
+        throw Error(keel::format("midiwrite: no filesystem for '{}'", path),
                     0, 0, "midiwrite", "", "numkit:midiwrite:fs");
     }
-    rp.fs->writeFileBytes(rp.path, std::string(bytes.begin(), bytes.end()));
+    rp.fs->writeFileBytes(rp.path, keel::StringRef(reinterpret_cast<const char *>(bytes.data()), bytes.size()));
 }
 
 void midiinfo_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::MutArrayRef<Value> outs,
                   CallContext &ctx)
 {
     argcheck::checkNargin(args.size(), 1, 1, "midiinfo");
-    const std::string path(args[0].toString().as_ref());
-    auto rp = ctx.engine->resolvePath(path);
+    const keel::String path = args[0].toString();
+    auto rp = ctx.engine->resolvePath(path.as_ref());
     if (!rp.fs || !rp.fs->exists(rp.path)) {
-        throw Error("midiinfo: file not found: " + path,
+        throw Error(keel::format("midiinfo: file not found: {}", path),
                     0, 0, "midiinfo", "", "numkit:midiinfo:fileNotFound");
     }
 
@@ -242,7 +243,7 @@ void midiinfo_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::Mut
     s.field("InitialTempoBpm")      = Value::scalar(mi.initialTempoBpm, mr);
     s.field("Duration")             = Value::scalar(mi.duration, mr);
     s.field("TotalNotes")           = Value::scalar(static_cast<double>(mi.totalNotes), mr);
-    s.field("TrackName")            = Value::fromString(mi.trackName, mr);
+    s.field("TrackName")            = Value::fromString(mi.trackName.as_ref(), mr);
 
     outs[0] = std::move(s);
 }

@@ -7,18 +7,17 @@
 
 #include <keel/core.h>
 #include <keel/memory.h>
+#include <keel/ref.h>
 #include "wav_codec.hpp" // For AudioData and AudioInfo
 
 #include <cstdint>
 #include <numkit/value/value.hpp>
-#include <string>
-#include <vector>
 
 namespace numkit::audio {
 
 /// Sniff MP3 magic or frame sync directly from an in-memory buffer.
 bool isMp3Bytes(const keel::u8 *data, keel::usize len);
-bool isMp3Bytes(const std::string &b);
+bool isMp3Bytes(keel::StringRef b);
 
 /// Decode MP3 audio from in-memory byte buffer.
 AudioData readMp3(const keel::u8 *data, keel::usize len,

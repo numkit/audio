@@ -9,6 +9,7 @@
 
 #include <keel/core.h>
 #include <keel/ref.h>
+#include <keel/string.h>
 #include <numkit/audio/features/pitch_harmonics.hpp>
 
 #include <numkit/sys/plugin.hpp>   // CallContext, ctx.engine->resource()
@@ -17,7 +18,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <string>
 
 namespace numkit::audio {
 namespace detail {
@@ -38,20 +38,20 @@ void pitch_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/,
                keel::MutArrayRef<Value> outs, CallContext &ctx)
 {
     argcheck::checkNargin(args.size(), 2, "pitch");
-    std::string method = "NCF";
+    keel::String method = keel::String::from("NCF");
     double minF = 50.0, maxF = 400.0;
     // Parse Name-Value pairs starting at args[2].
     for (keel::usize i = 2; i + 1 < args.size(); i += 2) {
         if (args[i].type() != ValueType::CHAR && args[i].type() != ValueType::STRING)
             continue;
-        std::string name(args[i].toString().as_ref());
+        keel::String name = args[i].toString();
         std::transform(name.begin(), name.end(), name.begin(),
                         [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
         if (name == "method") {
-            std::string m(args[i + 1].toString().as_ref());
+            keel::String m = args[i + 1].toString();
             std::transform(m.begin(), m.end(), m.begin(),
                             [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
-            method = m;
+            method = keel::move(m);
         } else if (name == "range") {
             const Value &r = args[i + 1];
             if (r.numel() != 2)

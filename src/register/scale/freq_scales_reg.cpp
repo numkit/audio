@@ -11,6 +11,7 @@
 
 #include <keel/core.h>
 #include <keel/ref.h>
+#include <keel/string.h>
 #include <numkit/audio/scale/freq_scales.hpp>
 
 #include <numkit/sys/plugin.hpp>   // CallContext, ctx.engine->resource()
@@ -19,7 +20,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <string>
 
 namespace numkit::audio {
 namespace detail {
@@ -47,7 +47,7 @@ namespace {
 bool isStandard532_2(const Value &v)
 {
     if (v.type() == ValueType::CHAR || v.type() == ValueType::STRING) {
-        std::string lower(v.toString().as_ref());
+        keel::String lower = v.toString();
         // Case-insensitive compare.
         std::transform(lower.begin(), lower.end(), lower.begin(),
                         [](unsigned char c) { return static_cast<char>(std::tolower(c)); });

@@ -13,7 +13,7 @@ namespace numkit::audio {
 
 /// Sniff RIFF/WAVE header directly from an in-memory buffer.
 bool isWavBytes(const keel::u8 *data, keel::usize len);
-bool isWavBytes(const std::string &b);
+bool isWavBytes(keel::StringRef b);
 
 /// Decode WAV audio from in-memory byte buffer.
 /// @param startSample 1-based start sample index (inclusive). 1 = beginning.
@@ -29,10 +29,10 @@ AudioInfo peekWav(const keel::u8 *data, keel::usize len);
 
 /// Encode audio matrix `y` (N x C) to in-memory WAV byte stream.
 /// @param bitsPerSample 8, 16, 24, or 32 (32-bit floats encoded as IEEE Float format 3).
-std::vector<keel::u8> writeWavToBytes(const Value &y, double sampleRate,
-                                          keel::u16 bitsPerSample = 16,
-                                          const std::string &title = "",
-                                          const std::string &artist = "",
-                                          const std::string &comment = "");
+keel::Array<keel::u8> writeWavToBytes(const Value &y, double sampleRate,
+                                      keel::u16 bitsPerSample = 16,
+                                      keel::StringRef title = "",
+                                      keel::StringRef artist = "",
+                                      keel::StringRef comment = "");
 
 } // namespace numkit::audio

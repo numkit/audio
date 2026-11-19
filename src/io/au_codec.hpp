@@ -5,20 +5,20 @@
 
 #pragma once
 
+#include <keel/array.h>
 #include <keel/core.h>
 #include <keel/memory.h>
+#include <keel/ref.h>
 #include "wav_codec.hpp" // For AudioData and AudioInfo
 
 #include <cstdint>
 #include <numkit/value/value.hpp>
-#include <string>
-#include <vector>
 
 namespace numkit::audio {
 
 /// Sniff AU/SND magic bytes directly from an in-memory buffer.
 bool isAuBytes(const keel::u8 *data, keel::usize len);
-bool isAuBytes(const std::string &b);
+bool isAuBytes(keel::StringRef b);
 
 /// Decode AU/SND audio from in-memory byte buffer.
 AudioData readAu(const keel::u8 *data, keel::usize len,
@@ -30,8 +30,8 @@ AudioData readAu(const keel::u8 *data, keel::usize len,
 AudioInfo peekAu(const keel::u8 *data, keel::usize len);
 
 /// Encode audio matrix `y` (N x C) to in-memory AU byte stream.
-std::vector<keel::u8> writeAuToBytes(const Value &y, double sampleRate,
-                                         keel::u16 bitsPerSample = 16,
-                                         const std::string &comment = "");
+keel::Array<keel::u8> writeAuToBytes(const Value &y, double sampleRate,
+                                     keel::u16 bitsPerSample = 16,
+                                     keel::StringRef comment = "");
 
 } // namespace numkit::audio

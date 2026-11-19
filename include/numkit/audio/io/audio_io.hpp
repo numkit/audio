@@ -7,12 +7,13 @@
 
 #pragma once
 
+#include <keel/array.h>
 #include <keel/core.h>
 #include <keel/memory.h>
+#include <keel/ref.h>
+#include <keel/string.h>
 #include <cstdint>
 #include <numkit/value/value.hpp>
-#include <string>
-#include <vector>
 
 namespace numkit::audio {
 
@@ -27,24 +28,24 @@ struct AudioData {
     keel::u16 bitsPerSample = 16;  ///< Quantization bit depth per sample.
     keel::u16 numChannels = 1;     ///< Number of interleaved audio channels.
     keel::u64 totalSamples = 0;    ///< Total number of sample frames per channel.
-    std::string title;            ///< Embedded track title metadata.
-    std::string artist;           ///< Embedded artist metadata.
-    std::string comment;          ///< Embedded comment or description metadata.
+    keel::String title;            ///< Embedded track title metadata.
+    keel::String artist;           ///< Embedded artist metadata.
+    keel::String comment;          ///< Embedded comment or description metadata.
 };
 
 /// @brief Audio file metadata container (`info = audioinfo(filename)`).
 struct AudioInfo {
-    std::string format;            ///< Container format (e.g. `"WAV"`, `"FLAC"`, `"MP3"`, `"AIFF"`).
-    std::string compressionMethod; ///< Audio compression codec name.
+    keel::String format;            ///< Container format (e.g. `"WAV"`, `"FLAC"`, `"MP3"`, `"AIFF"`).
+    keel::String compressionMethod; ///< Audio compression codec name.
     keel::u32 numChannels = 0;      ///< Number of audio channels.
     keel::f64 sampleRate = 0.0;       ///< Sampling rate in Hz.
     keel::u64 totalSamples = 0;     ///< Total sample frames in file.
     keel::f64 duration = 0.0;         ///< Total duration in seconds.
     keel::u16 bitsPerSample = 0;    ///< Bits per sample.
     keel::u32 bitRate = 0;          ///< Bitrate in kbps.
-    std::string title;             ///< Track title.
-    std::string artist;            ///< Track artist.
-    std::string comment;           ///< Comment or genre.
+    keel::String title;             ///< Track title.
+    keel::String artist;            ///< Track artist.
+    keel::String comment;           ///< Comment or genre.
 };
 
 // ── In-Memory Byte-Oriented Public APIs (WASM / VFS Friendly) ────────────────
@@ -69,7 +70,7 @@ AudioData audioreadFromBytes(const keel::u8 *data, keel::usize len,
 /// @param nativeType True to return integer types, false for normalized `[-1.0, 1.0]` double.
 /// @param mr Memory resource for output allocation.
 /// @return AudioData containing audio matrix and sampling rate.
-AudioData audioreadFromBytes(const std::string &bytes,
+AudioData audioreadFromBytes(keel::StringRef bytes,
                             keel::i64 startSample = 1, keel::i64 endSample = -1,
                             bool nativeType = false,
                             keel::Allocator *mr = nullptr);
@@ -83,7 +84,7 @@ AudioInfo audioinfoFromBytes(const keel::u8 *data, keel::usize len);
 /// @brief Reads audio metadata from string memory buffer (`info = audioinfo(bytes)`).
 /// @param bytes Audio file bytes as string.
 /// @return AudioInfo metadata struct.
-AudioInfo audioinfoFromBytes(const std::string &bytes);
+AudioInfo audioinfoFromBytes(keel::StringRef bytes);
 
 /// @brief Encodes audio matrix `y` into memory byte buffer (`bytes = audiowrite(y, Fs, ...)`).
 /// @param y Audio sample matrix `N x C`.
@@ -93,13 +94,13 @@ AudioInfo audioinfoFromBytes(const std::string &bytes);
 /// @param title Optional metadata title.
 /// @param artist Optional metadata artist.
 /// @param comment Optional metadata comment.
-/// @return Vector of encoded file bytes.
-std::vector<keel::u8> audiowriteToBytes(const Value &y, keel::f64 sampleRate,
-                                            const std::string &format = "wav",
-                                            keel::u16 bitsPerSample = 16,
-                                            const std::string &title = "",
-                                            const std::string &artist = "",
-                                            const std::string &comment = "");
+/// @return Array of encoded file bytes.
+keel::Array<keel::u8> audiowriteToBytes(const Value &y, keel::f64 sampleRate,
+                                        keel::StringRef format = "wav",
+                                        keel::u16 bitsPerSample = 16,
+                                        keel::StringRef title = "",
+                                        keel::StringRef artist = "",
+                                        keel::StringRef comment = "");
 
 // ── File-System Public APIs (Native / OS wrappers) ──────────────────────────
 
@@ -111,7 +112,7 @@ std::vector<keel::u8> audiowriteToBytes(const Value &y, keel::f64 sampleRate,
 /// @param mr Memory resource for output allocation.
 /// @return AudioData containing decoded samples matrix and metadata.
 /// @see audiowrite, audioinfo
-AudioData audioread(const std::string &path,
+AudioData audioread(keel::StringRef path,
                     keel::i64 startSample = 1, keel::i64 endSample = -1,
                     bool nativeType = false,
                     keel::Allocator *mr = nullptr);
@@ -120,7 +121,7 @@ AudioData audioread(const std::string &path,
 /// @param path Path to audio file.
 /// @return AudioInfo struct containing format, channels, sample rate, and duration.
 /// @see audioread, audiowrite
-AudioInfo audioinfo(const std::string &path);
+AudioInfo audioinfo(keel::StringRef path);
 
 /// @brief Writes audio data matrix `y` to file on disk (`audiowrite(filename, y, Fs)`).
 /// @param path Path to output audio file (e.g. `.wav`, `.aiff`, `.au`).
@@ -131,11 +132,11 @@ AudioInfo audioinfo(const std::string &path);
 /// @param artist Optional artist metadata.
 /// @param comment Optional comment metadata.
 /// @see audioread, audioinfo
-void audiowrite(const std::string &path, const Value &y, keel::f64 sampleRate,
+void audiowrite(keel::StringRef path, const Value &y, keel::f64 sampleRate,
                 keel::u16 bitsPerSample = 16,
-                const std::string &title = "",
-                const std::string &artist = "",
-                const std::string &comment = "");
+                keel::StringRef title = "",
+                keel::StringRef artist = "",
+                keel::StringRef comment = "");
 
 
 /// @}

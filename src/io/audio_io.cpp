@@ -4,10 +4,13 @@
 // (audioread, audiowrite, audioinfo, midiread, midiwrite, midiinfo)
 // to keel::audio.
 
+#include <keel/array.h>
 #include <keel/core.h>
+#include <keel/format.h>
+#include <keel/fs.h>
 #include <keel/memory.h>
 #include <keel/ref.h>
-#include <keel/array.h>
+#include <keel/string.h>
 #include <numkit/audio/io/audio_io.hpp>
 
 #include "wav_codec.hpp"
@@ -28,10 +31,6 @@
 #include <cctype>
 #include <cmath>
 #include <cstring>
-#include <fstream>
-#include <iterator>
-#include <string>
-#include <vector>
 
 namespace numkit::audio {
 
@@ -42,39 +41,29 @@ keel::ArrayRef<keel::u8> toRef(const keel::u8 *data, keel::usize len) {
     return keel::ArrayRef<keel::u8>(data, len);
 }
 
-std::string toStdStr(keel::StringRef s) {
-    return std::string(s.data(), s.size());
-}
-
-std::vector<keel::u8> toStdVec(const keel::Array<keel::u8> &arr) {
-    return std::vector<keel::u8>(arr.data(), arr.data() + arr.size());
-}
-
-std::string extensionFromPath(const std::string &path) {
-    auto dot = path.find_last_of('.');
-    if (dot == std::string::npos) return "";
-    std::string ext = path.substr(dot + 1);
+keel::String extensionFromPath(keel::StringRef path) {
+    auto dot = path.rfind('.');
+    if (dot == keel::kInvalidIndex) return keel::String{};
+    keel::String ext = keel::String::from(path.substr(dot + 1));
     for (char &c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     return ext;
 }
 
-std::vector<keel::u8> readFileDirect(const std::string &path) {
-    std::ifstream is(path, std::ios::binary);
-    if (!is) {
-        throw Error("audioread: could not open file: " + path,
+keel::Array<keel::u8> readFileDirect(keel::StringRef path) {
+    auto res = keel::fs_read_file(path);
+    if (!res) {
+        throw Error(keel::format("audioread: could not open file: {}", path),
                     0, 0, "audioread", "", "numkit:audioread:fileNotFound");
     }
-    return std::vector<keel::u8>(std::istreambuf_iterator<char>(is), {});
+    return keel::move(res.value());
 }
 
-void writeFileDirect(const std::string &path, const std::vector<keel::u8> &data) {
-    std::ofstream os(path, std::ios::binary);
-    if (!os) {
-        throw Error("audiowrite: could not create output file: " + path,
+void writeFileDirect(keel::StringRef path, keel::ArrayRef<keel::u8> data) {
+    auto err = keel::fs_write_file(path, data);
+    if (err.is_err()) {
+        throw Error(keel::format("audiowrite: could not create output file: {}", path),
                     0, 0, "audiowrite", "", "numkit:audiowrite:fileCreateFailed");
     }
-    os.write(reinterpret_cast<const char *>(data.data()),
-             static_cast<std::streamsize>(data.size()));
 }
 
 void audioread_argcheck(keel::AudioFormat fmt) {
@@ -91,11 +80,11 @@ void audioinfo_argcheck(keel::AudioFormat fmt) {
     }
 }
 
-void audiowrite_argcheck(const std::string &fmt, const std::string &format) {
+void audiowrite_argcheck(keel::StringRef fmt, keel::StringRef format) {
     if (fmt != "wav" && fmt != "wave" &&
         fmt != "aiff" && fmt != "aif" && fmt != "aifc" &&
         fmt != "au" && fmt != "snd") {
-        throw Error("audiowrite: unsupported format for audio encoding: '" + format + "'",
+        throw Error(keel::format("audiowrite: unsupported format for audio encoding: '{}'", format),
                     0, 0, "audiowrite", "", "numkit:audiowrite:unsupportedFormat");
     }
 }
@@ -129,9 +118,9 @@ AudioData bufferToAudioData(const keel::AudioBuffer &buf, bool nativeType,
     res.bitsPerSample = buf.bits_per_sample;
     res.numChannels = buf.channels;
     res.totalSamples = buf.total_source_frames;
-    res.title = toStdStr(buf.metadata.title.as_ref());
-    res.artist = toStdStr(buf.metadata.artist.as_ref());
-    res.comment = toStdStr(buf.metadata.comment.as_ref());
+    res.title = keel::String::from(buf.metadata.title.as_ref());
+    res.artist = keel::String::from(buf.metadata.artist.as_ref());
+    res.comment = keel::String::from(buf.metadata.comment.as_ref());
 
     const keel::usize frames = static_cast<keel::usize>(buf.frames);
     const keel::usize channels = static_cast<keel::usize>(buf.channels);
@@ -180,22 +169,22 @@ AudioData bufferToAudioData(const keel::AudioBuffer &buf, bool nativeType,
 
 AudioInfo keelInfoToAudioInfo(const keel::AudioInfo &ki) {
     AudioInfo info;
-    info.format = toStdStr(keel::audio_format_name(ki.format));
-    info.compressionMethod = toStdStr(ki.compression_method.as_ref());
+    info.format = keel::String::from(keel::audio_format_name(ki.format));
+    info.compressionMethod = keel::String::from(ki.compression_method.as_ref());
     info.numChannels = ki.channels;
     info.sampleRate = ki.sample_rate;
     info.totalSamples = ki.total_frames;
     info.duration = ki.duration_sec;
     info.bitsPerSample = ki.bits_per_sample;
     info.bitRate = ki.bit_rate_kbps;
-    info.title = toStdStr(ki.metadata.title.as_ref());
-    info.artist = toStdStr(ki.metadata.artist.as_ref());
-    info.comment = toStdStr(ki.metadata.comment.as_ref());
+    info.title = keel::String::from(ki.metadata.title.as_ref());
+    info.artist = keel::String::from(ki.metadata.artist.as_ref());
+    info.comment = keel::String::from(ki.metadata.comment.as_ref());
     return info;
 }
 
 struct PreparedAudioInput {
-    std::vector<double> promoted;
+    keel::Array<double> promoted;
     keel::AudioView view;
 };
 
@@ -243,42 +232,42 @@ PreparedAudioInput prepareEncodeInput(const Value &y, double sampleRate, bool pr
 bool isWavBytes(const keel::u8 *data, keel::usize len) {
     return keel::is_wav_bytes(toRef(data, len));
 }
-bool isWavBytes(const std::string &b) {
+bool isWavBytes(keel::StringRef b) {
     return isWavBytes(reinterpret_cast<const keel::u8 *>(b.data()), b.size());
 }
 
 bool isFlacBytes(const keel::u8 *data, keel::usize len) {
     return keel::is_flac_bytes(toRef(data, len));
 }
-bool isFlacBytes(const std::string &b) {
+bool isFlacBytes(keel::StringRef b) {
     return isFlacBytes(reinterpret_cast<const keel::u8 *>(b.data()), b.size());
 }
 
 bool isMp3Bytes(const keel::u8 *data, keel::usize len) {
     return keel::is_mp3_bytes(toRef(data, len));
 }
-bool isMp3Bytes(const std::string &b) {
+bool isMp3Bytes(keel::StringRef b) {
     return isMp3Bytes(reinterpret_cast<const keel::u8 *>(b.data()), b.size());
 }
 
 bool isAiffBytes(const keel::u8 *data, keel::usize len) {
     return keel::is_aiff_bytes(toRef(data, len));
 }
-bool isAiffBytes(const std::string &b) {
+bool isAiffBytes(keel::StringRef b) {
     return isAiffBytes(reinterpret_cast<const keel::u8 *>(b.data()), b.size());
 }
 
 bool isAuBytes(const keel::u8 *data, keel::usize len) {
     return keel::is_au_bytes(toRef(data, len));
 }
-bool isAuBytes(const std::string &b) {
+bool isAuBytes(keel::StringRef b) {
     return isAuBytes(reinterpret_cast<const keel::u8 *>(b.data()), b.size());
 }
 
 bool isMidiBytes(const keel::u8 *data, keel::usize len) {
     return keel::is_midi_bytes(toRef(data, len));
 }
-bool isMidiBytes(const std::string &b) {
+bool isMidiBytes(keel::StringRef b) {
     return isMidiBytes(reinterpret_cast<const keel::u8 *>(b.data()), b.size());
 }
 
@@ -306,11 +295,11 @@ AudioInfo peekWav(const keel::u8 *data, keel::usize len) {
     return keelInfoToAudioInfo(res.value());
 }
 
-std::vector<keel::u8> writeWavToBytes(const Value &y, double sampleRate,
-                                          keel::u16 bitsPerSample,
-                                          const std::string &title,
-                                          const std::string &artist,
-                                          const std::string &comment) {
+keel::Array<keel::u8> writeWavToBytes(const Value &y, double sampleRate,
+                                      keel::u16 bitsPerSample,
+                                      keel::StringRef title,
+                                      keel::StringRef artist,
+                                      keel::StringRef comment) {
     if (bitsPerSample != 8 && bitsPerSample != 16 && bitsPerSample != 24 &&
         bitsPerSample != 32 && bitsPerSample != 64) {
         bitsPerSample = 16;
@@ -319,16 +308,16 @@ std::vector<keel::u8> writeWavToBytes(const Value &y, double sampleRate,
     keel::AudioEncodeOptions opts;
     opts.bits_per_sample = bitsPerSample;
     opts.float_samples = (y.type() == ValueType::SINGLE && bitsPerSample == 32) || (bitsPerSample == 64);
-    opts.title = keel::StringRef(title.data(), title.size());
-    opts.artist = keel::StringRef(artist.data(), artist.size());
-    opts.comment = keel::StringRef(comment.data(), comment.size());
+    opts.title = title;
+    opts.artist = artist;
+    opts.comment = comment;
 
     auto res = keel::encode_wav(input.view, opts);
     if (!res) {
         throw Error("audiowrite: failed to encode WAV stream",
                     0, 0, "audiowrite", "", "numkit:audiowrite:wav");
     }
-    return toStdVec(res.value());
+    return keel::move(res.value());
 }
 
 AudioData readFlac(const keel::u8 *data, keel::usize len,
@@ -391,11 +380,11 @@ AudioInfo peekAiff(const keel::u8 *data, keel::usize len) {
     return keelInfoToAudioInfo(res.value());
 }
 
-std::vector<keel::u8> writeAiffToBytes(const Value &y, double sampleRate,
-                                           keel::u16 bitsPerSample,
-                                           const std::string &title,
-                                           const std::string &artist,
-                                           const std::string &comment) {
+keel::Array<keel::u8> writeAiffToBytes(const Value &y, double sampleRate,
+                                       keel::u16 bitsPerSample,
+                                       keel::StringRef title,
+                                       keel::StringRef artist,
+                                       keel::StringRef comment) {
     if (bitsPerSample != 8 && bitsPerSample != 16 && bitsPerSample != 24 && bitsPerSample != 32) {
         bitsPerSample = 16;
     }
@@ -403,16 +392,16 @@ std::vector<keel::u8> writeAiffToBytes(const Value &y, double sampleRate,
     keel::AudioEncodeOptions opts;
     opts.bits_per_sample = bitsPerSample;
     opts.float_samples = false;
-    opts.title = keel::StringRef(title.data(), title.size());
-    opts.artist = keel::StringRef(artist.data(), artist.size());
-    opts.comment = keel::StringRef(comment.data(), comment.size());
+    opts.title = title;
+    opts.artist = artist;
+    opts.comment = comment;
 
     auto res = keel::encode_aiff(input.view, opts);
     if (!res) {
         throw Error("audiowrite: failed to encode AIFF stream",
                     0, 0, "audiowrite", "", "numkit:audiowrite:aiff");
     }
-    return toStdVec(res.value());
+    return keel::move(res.value());
 }
 
 AudioData readAu(const keel::u8 *data, keel::usize len,
@@ -435,9 +424,9 @@ AudioInfo peekAu(const keel::u8 *data, keel::usize len) {
     return keelInfoToAudioInfo(res.value());
 }
 
-std::vector<keel::u8> writeAuToBytes(const Value &y, double sampleRate,
-                                         keel::u16 bitsPerSample,
-                                         const std::string &comment) {
+keel::Array<keel::u8> writeAuToBytes(const Value &y, double sampleRate,
+                                     keel::u16 bitsPerSample,
+                                     keel::StringRef comment) {
     if (bitsPerSample != 8 && bitsPerSample != 16 && bitsPerSample != 24 && bitsPerSample != 32) {
         bitsPerSample = 16;
     }
@@ -445,14 +434,14 @@ std::vector<keel::u8> writeAuToBytes(const Value &y, double sampleRate,
     keel::AudioEncodeOptions opts;
     opts.bits_per_sample = bitsPerSample;
     opts.float_samples = false;
-    opts.comment = keel::StringRef(comment.data(), comment.size());
+    opts.comment = comment;
 
     auto res = keel::encode_au(input.view, opts);
     if (!res) {
         throw Error("audiowrite: failed to encode AU/SND stream",
                     0, 0, "audiowrite", "", "numkit:audiowrite:au");
     }
-    return toStdVec(res.value());
+    return keel::move(res.value());
 }
 
 // ============================================================================
@@ -473,7 +462,7 @@ MidiInfo peekMidi(const keel::u8 *data, keel::usize len) {
     info.initialTempoBpm = km.initial_tempo_bpm;
     info.duration = km.duration_sec;
     info.totalNotes = km.total_notes;
-    info.trackName = toStdStr(km.track_name.as_ref());
+    info.trackName = keel::String::from(km.track_name.as_ref());
     return info;
 }
 
@@ -500,9 +489,9 @@ Value readMidi(const keel::u8 *data, keel::usize len,
     return out;
 }
 
-std::vector<keel::u8> writeMidiToBytes(const Value &notesMatrix,
-                                           keel::u16 ticksPerQuarterNote,
-                                           double tempoBpm) {
+keel::Array<keel::u8> writeMidiToBytes(const Value &notesMatrix,
+                                       keel::u16 ticksPerQuarterNote,
+                                       double tempoBpm) {
     const auto &d = notesMatrix.dims();
     const keel::usize numNotes = d.rows();
     if (ticksPerQuarterNote == 0 || (ticksPerQuarterNote & 0x8000u) != 0u) {
@@ -512,7 +501,7 @@ std::vector<keel::u8> writeMidiToBytes(const Value &notesMatrix,
         tempoBpm = 120.0;
     }
 
-    std::vector<keel::MidiNote> notes(numNotes);
+    keel::Array<keel::MidiNote> notes(numNotes);
     for (keel::usize i = 0; i < numNotes; ++i) {
         int trk = 0;
         if (d.cols() >= 1) {
@@ -550,12 +539,12 @@ std::vector<keel::u8> writeMidiToBytes(const Value &notesMatrix,
     opts.ticks_per_quarter_note = ticksPerQuarterNote;
     opts.tempo_bpm = tempoBpm;
 
-    auto res = keel::encode_midi(keel::ArrayRef<keel::MidiNote>(notes.data(), notes.size()), opts);
+    auto res = keel::encode_midi(notes.as_ref(), opts);
     if (!res) {
         throw Error("midiwrite: failed to encode MIDI notes",
                     0, 0, "midiwrite", "", "numkit:midiwrite:encode");
     }
-    return toStdVec(res.value());
+    return keel::move(res.value());
 }
 
 // ============================================================================
@@ -582,7 +571,7 @@ AudioData audioreadFromBytes(const keel::u8 *data, keel::usize len,
                 0, 0, "audioread", "", "numkit:audioread:unsupportedFormat");
 }
 
-AudioData audioreadFromBytes(const std::string &bytes,
+AudioData audioreadFromBytes(keel::StringRef bytes,
                              keel::i64 startSample, keel::i64 endSample,
                              bool nativeType,
                              keel::Allocator *mr) {
@@ -607,19 +596,19 @@ AudioInfo audioinfoFromBytes(const keel::u8 *data, keel::usize len) {
                 0, 0, "audioinfo", "", "numkit:audioinfo:unsupportedFormat");
 }
 
-AudioInfo audioinfoFromBytes(const std::string &bytes) {
+AudioInfo audioinfoFromBytes(keel::StringRef bytes) {
     return audioinfoFromBytes(reinterpret_cast<const keel::u8 *>(bytes.data()), bytes.size());
 }
 
-std::vector<keel::u8> audiowriteToBytes(const Value &y, double sampleRate,
-                                            const std::string &format,
-                                            keel::u16 bitsPerSample,
-                                            const std::string &title,
-                                            const std::string &artist,
-                                            const std::string &comment) {
-    std::string fmt = format;
+keel::Array<keel::u8> audiowriteToBytes(const Value &y, double sampleRate,
+                                        keel::StringRef format,
+                                        keel::u16 bitsPerSample,
+                                        keel::StringRef title,
+                                        keel::StringRef artist,
+                                        keel::StringRef comment) {
+    keel::String fmt = keel::String::from(format);
     for (char &c : fmt) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    audiowrite_argcheck(fmt, format);
+    audiowrite_argcheck(fmt.as_ref(), format);
 
     if (fmt == "wav" || fmt == "wave") {
         return writeWavToBytes(y, sampleRate, bitsPerSample, title, artist, comment);
@@ -629,11 +618,11 @@ std::vector<keel::u8> audiowriteToBytes(const Value &y, double sampleRate,
         return writeAuToBytes(y, sampleRate, bitsPerSample, comment);
     }
 
-    throw Error("audiowrite: unsupported format for audio encoding: '" + format + "'",
+    throw Error(keel::format("audiowrite: unsupported format for audio encoding: '{}'", format),
                 0, 0, "audiowrite", "", "numkit:audiowrite:unsupportedFormat");
 }
 
-AudioData audioread(const std::string &path,
+AudioData audioread(keel::StringRef path,
                     keel::i64 startSample, keel::i64 endSample,
                     bool nativeType,
                     keel::Allocator *mr) {
@@ -641,22 +630,22 @@ AudioData audioread(const std::string &path,
     return audioreadFromBytes(bytes.data(), bytes.size(), startSample, endSample, nativeType, mr);
 }
 
-AudioInfo audioinfo(const std::string &path) {
+AudioInfo audioinfo(keel::StringRef path) {
     auto bytes = readFileDirect(path);
     auto info = audioinfoFromBytes(bytes.data(), bytes.size());
-    info.title = path;
+    info.title = keel::String::from(path);
     return info;
 }
 
-void audiowrite(const std::string &path, const Value &y, double sampleRate,
+void audiowrite(keel::StringRef path, const Value &y, double sampleRate,
                 keel::u16 bitsPerSample,
-                const std::string &title,
-                const std::string &artist,
-                const std::string &comment) {
-    std::string ext = extensionFromPath(path);
-    if (ext.empty()) ext = "wav";
-    auto bytes = audiowriteToBytes(y, sampleRate, ext, bitsPerSample, title, artist, comment);
-    writeFileDirect(path, bytes);
+                keel::StringRef title,
+                keel::StringRef artist,
+                keel::StringRef comment) {
+    keel::String ext = extensionFromPath(path);
+    if (ext.empty()) ext.assign("wav");
+    auto bytes = audiowriteToBytes(y, sampleRate, ext.as_ref(), bitsPerSample, title, artist, comment);
+    writeFileDirect(path, bytes.as_ref());
 }
 
 } // namespace numkit::audio

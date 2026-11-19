@@ -5,12 +5,13 @@
 
 #pragma once
 
+#include <keel/array.h>
 #include <keel/core.h>
 #include <keel/memory.h>
+#include <keel/ref.h>
+#include <keel/string.h>
 #include <cstdint>
 #include <numkit/value/value.hpp>
-#include <string>
-#include <vector>
 
 namespace numkit::audio {
 
@@ -31,12 +32,12 @@ struct MidiInfo {
     double initialTempoBpm = 120.0;
     double duration = 0.0;           // in seconds
     keel::u64 totalNotes = 0;
-    std::string trackName;
+    keel::String trackName;
 };
 
 /// Sniff MIDI 'MThd' magic directly from an in-memory buffer.
 bool isMidiBytes(const keel::u8 *data, keel::usize len);
-bool isMidiBytes(const std::string &b);
+bool isMidiBytes(keel::StringRef b);
 
 /// Peek MIDI file metadata without decoding all note events.
 MidiInfo peekMidi(const keel::u8 *data, keel::usize len);
@@ -46,8 +47,8 @@ Value readMidi(const keel::u8 *data, keel::usize len,
                keel::Allocator *mr = nullptr);
 
 /// Encode note matrix [N x 6] to Standard MIDI File (SMF Format 0).
-std::vector<keel::u8> writeMidiToBytes(const Value &notesMatrix,
-                                           keel::u16 ticksPerQuarterNote = 480,
-                                           double tempoBpm = 120.0);
+keel::Array<keel::u8> writeMidiToBytes(const Value &notesMatrix,
+                                       keel::u16 ticksPerQuarterNote = 480,
+                                       double tempoBpm = 120.0);
 
 } // namespace numkit::audio

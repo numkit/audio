@@ -1,10 +1,10 @@
 // src/register/audio_library.cpp
 
 #include <keel/core.h>
+#include <keel/format.h>
 #include <keel/ref.h>
 #include <numkit/audio/library.hpp>
 #include <numkit/sys/plugin.hpp>
-#include <string>
 #include <utility>
 
 namespace numkit::audio::detail {
@@ -58,7 +58,8 @@ namespace numkit {
 void AudioLibrary::install(PluginContext &engine)
 {
     auto reg = [&](const char *sub, const char *name, ExternalFunc fn) {
-        engine.registerFunction(std::string("audio.") + sub, name, std::move(fn));
+        keel::String ns = keel::format("audio.{}", sub);
+        engine.registerFunction(ns.as_ref(), name, std::move(fn));
     };
 
     reg("scale", "hz2mel",     &audio::detail::hz2mel_reg);

@@ -23,6 +23,7 @@
 #include <keel/memory.h>
 #include <keel/arena.h>
 #include <keel/array.h>
+#include <keel/format.h>
 #include <keel/math.h>
 #include <numkit/audio/spectral/shape_descriptors.hpp>
 
@@ -37,7 +38,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <vector>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -64,10 +64,9 @@ static void requireFloatClass(const Value &v, const char *fn,
     if (v.type() == ValueType::SINGLE || v.type() == ValueType::DOUBLE
         || v.type() == ValueType::COMPLEX || v.type() == ValueType::EMPTY)
         return;
-    throw Error(std::string(fn) + ": input " + std::to_string(argNum)
-                    + " (" + argName + ") must be single or double, not "
-                    + mtypeName(v.type()) + ".",
-                0, 0, fn, "", std::string("numkit:") + fn + ":invalidType");
+    throw Error(keel::format("{}: input {} ({}) must be single or double, not {}.",
+                             fn, argNum, argName, mtypeName(v.type())),
+                0, 0, fn, "", keel::format("numkit:{}:invalidType", fn));
 }
 
 // Build the STFT (short-time Fourier transform) power/magnitude matrix
@@ -106,20 +105,16 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
     const bool haveOvl = !opts.OverlapLength.isEmpty();
 
     // ── window ──
-    std::vector<double> win;
+    keel::Array<double> win;
     keel::usize winLen;
     if (!haveWin) {
         const double wNatural = std::round(fs * 0.03);
         if (wNatural > 120.0) {
             if (wNatural > static_cast<double>(xLen))
-                throw Error(std::string(fn) + ": the default window "
-                                "length round(0.03·f) = "
-                                + std::to_string(static_cast<long long>(
-                                      wNatural))
-                                + " exceeds the signal length "
-                                + std::to_string(xLen) + ".",
+                throw Error(keel::format("{}: the default window length round(0.03·f) = {} exceeds the signal length {}.",
+                                         fn, static_cast<long long>(wNatural), xLen),
                             0, 0, fn, "",
-                            std::string("numkit:") + fn + ":BadWindowLength");
+                            keel::format("numkit:{}:BadWindowLength", fn));
             winLen = static_cast<keel::usize>(wNatural);
             win.assign(winLen, 1.0);
         } else if (!haveOvl) {
@@ -137,30 +132,28 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
         const Value &W = opts.Window;
         requireFloatClass(W, fn, "Window", 3);
         if (W.type() == ValueType::COMPLEX)
-            throw Error(std::string(fn) + ": input Window must be real.",
+            throw Error(keel::format("{}: input Window must be real.", fn),
                         0, 0, fn, "",
-                        std::string("numkit:") + fn + ":expectedReal");
+                        keel::format("numkit:{}:expectedReal", fn));
         if (W.numel() == 0)
-            throw Error(std::string(fn) + ": input Window must be "
-                        "nonempty.", 0, 0, fn, "",
-                        std::string("numkit:") + fn + ":expectedNonempty");
+            throw Error(keel::format("{}: input Window must be nonempty.", fn),
+                        0, 0, fn, "",
+                        keel::format("numkit:{}:expectedNonempty", fn));
         if (W.dims().cols() != 1 && W.numel() > 1)
-            throw Error(std::string(fn) + ": input Window must be a "
-                        "column vector.", 0, 0, fn, "",
-                        std::string("numkit:") + fn + ":expectedColumn");
+            throw Error(keel::format("{}: input Window must be a column vector.", fn),
+                        0, 0, fn, "",
+                        keel::format("numkit:{}:expectedColumn", fn));
         const keel::usize wn = W.numel();
         for (keel::usize i = 0; i < wn; ++i)
             if (!std::isfinite(W.elemAsDouble(i)))
-                throw Error(std::string(fn) + ": input Window must be "
-                            "finite.", 0, 0, fn, "",
-                            std::string("numkit:") + fn + ":expectedFinite");
+                throw Error(keel::format("{}: input Window must be finite.", fn),
+                            0, 0, fn, "",
+                            keel::format("numkit:{}:expectedFinite", fn));
         if (wn <= 2 || wn > xLen)
-            throw Error(std::string(fn) + ": numel(Window) must be "
-                            "greater than 2 and at most the signal "
-                            "length " + std::to_string(xLen) + " (got "
-                            + std::to_string(wn) + ").",
+            throw Error(keel::format("{}: numel(Window) must be greater than 2 and at most the signal length {} (got {}).",
+                                     fn, xLen, wn),
                         0, 0, fn, "",
-                        std::string("numkit:") + fn + ":notLessEqual");
+                        keel::format("numkit:{}:notLessEqual", fn));
         winLen = wn;
         win.resize(wn);
         for (keel::usize i = 0; i < wn; ++i) win[i] = W.elemAsDouble(i);
@@ -176,28 +169,27 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
         const Value &O = opts.OverlapLength;
         requireFloatClass(O, fn, "OverlapLength", 3);
         if (O.type() == ValueType::COMPLEX)
-            throw Error(std::string(fn) + ": input OverlapLength must be "
-                        "real.", 0, 0, fn, "",
-                        std::string("numkit:") + fn + ":expectedReal");
+            throw Error(keel::format("{}: input OverlapLength must be real.", fn),
+                        0, 0, fn, "",
+                        keel::format("numkit:{}:expectedReal", fn));
         if (O.numel() != 1)
-            throw Error(std::string(fn) + ": input OverlapLength must be "
-                        "a scalar.", 0, 0, fn, "",
-                        std::string("numkit:") + fn + ":expectedScalar");
+            throw Error(keel::format("{}: input OverlapLength must be a scalar.", fn),
+                        0, 0, fn, "",
+                        keel::format("numkit:{}:expectedScalar", fn));
         const double v = O.elemAsDouble(0);
         if (!(v == std::floor(v)))
-            throw Error(std::string(fn) + ": input OverlapLength must be "
-                        "an integer.", 0, 0, fn, "",
-                        std::string("numkit:") + fn + ":expectedInteger");
-        if (v < 0.0)
-            throw Error(std::string(fn) + ": input OverlapLength must be "
-                        "nonnegative.", 0, 0, fn, "",
-                        std::string("numkit:") + fn + ":expectedNonnegative");
-        if (v >= static_cast<double>(winLen))
-            throw Error(std::string(fn) + ": OverlapLength must be "
-                            "smaller than the window length "
-                            + std::to_string(winLen) + ".",
+            throw Error(keel::format("{}: input OverlapLength must be an integer.", fn),
                         0, 0, fn, "",
-                        std::string("numkit:") + fn + ":BadOverlapLength");
+                        keel::format("numkit:{}:expectedInteger", fn));
+        if (v < 0.0)
+            throw Error(keel::format("{}: input OverlapLength must be nonnegative.", fn),
+                        0, 0, fn, "",
+                        keel::format("numkit:{}:expectedNonnegative", fn));
+        if (v >= static_cast<double>(winLen))
+            throw Error(keel::format("{}: OverlapLength must be smaller than the window length {}.",
+                                     fn, winLen),
+                        0, 0, fn, "",
+                        keel::format("numkit:{}:BadOverlapLength", fn));
         overlap = static_cast<keel::usize>(v);
     }
 
@@ -206,32 +198,29 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
     if (!opts.FFTLength.isEmpty()) {
         const Value &Nv = opts.FFTLength;
         if (Nv.type() == ValueType::COMPLEX)
-            throw Error(std::string(fn) + ": input FFTLength must be "
-                        "real.", 0, 0, fn, "",
-                        std::string("numkit:") + fn + ":expectedReal");
+            throw Error(keel::format("{}: input FFTLength must be real.", fn),
+                        0, 0, fn, "",
+                        keel::format("numkit:{}:expectedReal", fn));
         if (Nv.numel() != 1)
-            throw Error(std::string(fn) + ": input FFTLength must be a "
-                        "scalar.", 0, 0, fn, "",
-                        std::string("numkit:") + fn + ":expectedScalar");
+            throw Error(keel::format("{}: input FFTLength must be a scalar.", fn),
+                        0, 0, fn, "",
+                        keel::format("numkit:{}:expectedScalar", fn));
         const double v = Nv.elemAsDouble(0);
         if (!(v == std::floor(v)) || v <= 0.0)
-            throw Error(std::string(fn) + ": input FFTLength must be a "
-                        "positive integer.", 0, 0, fn, "",
-                        std::string("numkit:") + fn + ":mustBePositive");
+            throw Error(keel::format("{}: input FFTLength must be a positive integer.", fn),
+                        0, 0, fn, "",
+                        keel::format("numkit:{}:mustBePositive", fn));
         if (v < 2.0)
-            throw Error(std::string(fn) + ": FFTLength must be at least "
-                        "2.", 0, 0, fn, "",
-                        std::string("numkit:") + fn
-                            + ":mustBeGreaterThanOrEqual");
+            throw Error(keel::format("{}: FFTLength must be at least 2.", fn),
+                        0, 0, fn, "",
+                        keel::format("numkit:{}:mustBeGreaterThanOrEqual", fn));
         nfft = static_cast<keel::usize>(v);
     }
     if (nfft < winLen)
-        throw Error(std::string(fn) + ": the FFT length must be greater "
-                        "than or equal to the window length, "
-                        + std::to_string(winLen) + ".",
+        throw Error(keel::format("{}: the FFT length must be greater than or equal to the window length, {}.",
+                                 fn, winLen),
                     0, 0, fn, "",
-                    std::string("numkit:") + fn
-                        + ":FFTLengthLessThanWindowLength");
+                    keel::format("numkit:{}:FFTLengthLessThanWindowLength", fn));
 
     // ── range ──
     double rLo = 0.0, rHi;
@@ -240,32 +229,32 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
         const Value &R = opts.Range;
         requireFloatClass(R, fn, "Range", 3);
         if (R.type() == ValueType::COMPLEX)
-            throw Error(std::string(fn) + ": input Range must be real.",
+            throw Error(keel::format("{}: input Range must be real.", fn),
                         0, 0, fn, "",
-                        std::string("numkit:") + fn + ":expectedReal");
+                        keel::format("numkit:{}:expectedReal", fn));
         if (R.numel() != 2 || R.dims().rows() != 1)
-            throw Error(std::string(fn) + ": input Range must be a 1-by-2 "
-                        "row vector.", 0, 0, fn, "",
-                        std::string("numkit:") + fn + ":expectedRow");
+            throw Error(keel::format("{}: input Range must be a 1-by-2 row vector.", fn),
+                        0, 0, fn, "",
+                        keel::format("numkit:{}:expectedRow", fn));
         rLo = R.elemAsDouble(0);
         rHi = R.elemAsDouble(1);
         if (!std::isfinite(rLo) || !std::isfinite(rHi))
-            throw Error(std::string(fn) + ": input Range must be finite.",
+            throw Error(keel::format("{}: input Range must be finite.", fn),
                         0, 0, fn, "",
-                        std::string("numkit:") + fn + ":expectedFinite");
+                        keel::format("numkit:{}:expectedFinite", fn));
         if (!(rLo < rHi))
-            throw Error(std::string(fn) + ": Expected Range to be "
-                        "strictly increasing.", 0, 0, fn, "",
-                        std::string("numkit:") + fn + ":expectedIncreasing");
-        if (rLo < 0.0)
-            throw Error(std::string(fn) + ": input Range must be "
-                        "nonnegative.", 0, 0, fn, "",
-                        std::string("numkit:") + fn + ":expectedNonnegative");
-        if (rHi > fs / 2.0)
-            throw Error(std::string(fn) + ": Range(2) must be at most "
-                        "fs/2 = " + std::to_string(fs / 2.0) + ".",
+            throw Error(keel::format("{}: Expected Range to be strictly increasing.", fn),
                         0, 0, fn, "",
-                        std::string("numkit:") + fn + ":notLessEqual");
+                        keel::format("numkit:{}:expectedIncreasing", fn));
+        if (rLo < 0.0)
+            throw Error(keel::format("{}: input Range must be nonnegative.", fn),
+                        0, 0, fn, "",
+                        keel::format("numkit:{}:expectedNonnegative", fn));
+        if (rHi > fs / 2.0)
+            throw Error(keel::format("{}: Range(2) must be at most fs/2 = {}.",
+                                     fn, fs / 2.0),
+                        0, 0, fn, "",
+                        keel::format("numkit:{}:notLessEqual", fn));
     }
 
     const keel::usize hop = winLen - overlap;
@@ -350,28 +339,26 @@ InputData prepareInput(keel::Allocator *mr,
         // nonnegative real finite scalar by the time we get here.
         requireFloatClass(x, fn, "x", 1);
         if (x.type() == ValueType::COMPLEX)
-            throw Error(std::string(fn) + ": input 1 (x) must be real.",
+            throw Error(keel::format("{}: input 1 (x) must be real.", fn),
                         0, 0, fn, "",
-                        std::string("numkit:") + fn + ":expectedReal");
+                        keel::format("numkit:{}:expectedReal", fn));
         if (x.isEmpty())
-            throw Error(std::string(fn) + ": input 1 (x) must be "
-                        "nonempty.", 0, 0, fn, "",
-                        std::string("numkit:") + fn + ":expectedNonempty");
-        if (x.dims().pages() > 1)
-            throw Error(std::string(fn) + ": Expected x to be "
-                        "two-dimensional.", 0, 0, fn, "",
-                        std::string("numkit:") + fn + ":expected2D");
-        if (x.dims().rows() < 2)
-            throw Error(std::string(fn) + ": Expected the length of the "
-                        "signals in \"x\" to be larger than 1.",
+            throw Error(keel::format("{}: input 1 (x) must be nonempty.", fn),
                         0, 0, fn, "",
-                        std::string("numkit:") + fn
-                            + ":insufficientSignalLength");
+                        keel::format("numkit:{}:expectedNonempty", fn));
+        if (x.dims().pages() > 1)
+            throw Error(keel::format("{}: Expected x to be two-dimensional.", fn),
+                        0, 0, fn, "",
+                        keel::format("numkit:{}:expected2D", fn));
+        if (x.dims().rows() < 2)
+            throw Error(keel::format("{}: Expected the length of the signals in \"x\" to be larger than 1.", fn),
+                        0, 0, fn, "",
+                        keel::format("numkit:{}:insufficientSignalLength", fn));
         for (keel::usize i = 0; i < x.numel(); ++i)
             if (!std::isfinite(x.elemAsDouble(i)))
-                throw Error(std::string(fn) + ": input 1 (x) must be "
-                            "finite.", 0, 0, fn, "",
-                            std::string("numkit:") + fn + ":expectedFinite");
+                throw Error(keel::format("{}: input 1 (x) must be finite.", fn),
+                            0, 0, fn, "",
+                            keel::format("numkit:{}:expectedFinite", fn));
         const double fs = f.elemAsDouble(0);
         Stft s = computeStft(mr, x, fs, magnitude, fn, opts);
         d.X = std::move(s.X);
@@ -383,15 +370,14 @@ InputData prepareInput(keel::Allocator *mr,
         // Frequency-domain: ≤ 3-D, ≥ 2 rows, F matches the rows.
         requireFloatClass(x, fn, "x", 1);
         if (x.dims().rows() < 2)
-            throw Error(std::string(fn) + ": Expected the number of rows "
-                        "of \"x\" to be larger than 1.", 0, 0, fn, "",
-                        std::string("numkit:") + fn + ":insufficientSignalLength");
-        if (f.numel() != x.dims().rows())
-            throw Error(std::string(fn) + ": size(x,1) must equal "
-                            "numel(f) (got " + std::to_string(x.dims().rows())
-                            + " and " + std::to_string(f.numel()) + ").",
+            throw Error(keel::format("{}: Expected the number of rows of \"x\" to be larger than 1.", fn),
                         0, 0, fn, "",
-                        std::string("numkit:") + fn + ":BadFrequencyVector");
+                        keel::format("numkit:{}:insufficientSignalLength", fn));
+        if (f.numel() != x.dims().rows())
+            throw Error(keel::format("{}: size(x,1) must equal numel(f) (got {} and {}).",
+                                     fn, x.dims().rows(), f.numel()),
+                        0, 0, fn, "",
+                        keel::format("numkit:{}:BadFrequencyVector", fn));
         d.X = x;
         d.F = f;
         d.isTime = false;
@@ -696,8 +682,7 @@ void spectralFlux_argcheck(const Value &x, const Value &f, double p,
 {
     (void)x;
     if (p != 1.0 && p != 2.0)
-        throw Error("spectralFlux: NormType must be 1 or 2 "
-                    "(got " + std::to_string(p) + ").",
+        throw Error(keel::format("spectralFlux: NormType must be 1 or 2 (got {}).", p),
                     0, 0, "spectralFlux", "",
                     "numkit:spectralFlux:normType");
     const bool timeForm = f.numel() == 1;
@@ -772,9 +757,8 @@ Value spectralFluxFull(const Value &x, const Value &f, double p,
     if (haveIc && !timeForm
         && (initialCondition->numel() != M * C
             || initialCondition->dims().rows() != M))
-        throw Error("spectralFlux: initialCondition must have one "
-                        + std::to_string(M) + "-by-1 column per channel "
-                        + "(got " + std::to_string(C) + " channels).",
+        throw Error(keel::format("spectralFlux: initialCondition must have one {}-by-1 column per channel (got {} channels).",
+                                 M, C),
                     0, 0, "spectralFlux", "",
                     "numkit:spectralFlux:BadInitialConditions");
 

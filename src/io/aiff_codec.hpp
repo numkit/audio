@@ -5,20 +5,20 @@
 
 #pragma once
 
+#include <keel/array.h>
 #include <keel/core.h>
 #include <keel/memory.h>
+#include <keel/ref.h>
 #include "wav_codec.hpp" // For AudioData and AudioInfo
 
 #include <cstdint>
 #include <numkit/value/value.hpp>
-#include <string>
-#include <vector>
 
 namespace numkit::audio {
 
 /// Sniff AIFF magic bytes directly from an in-memory buffer.
 bool isAiffBytes(const keel::u8 *data, keel::usize len);
-bool isAiffBytes(const std::string &b);
+bool isAiffBytes(keel::StringRef b);
 
 /// Decode AIFF audio from in-memory byte buffer.
 AudioData readAiff(const keel::u8 *data, keel::usize len,
@@ -30,10 +30,10 @@ AudioData readAiff(const keel::u8 *data, keel::usize len,
 AudioInfo peekAiff(const keel::u8 *data, keel::usize len);
 
 /// Encode audio matrix `y` (N x C) to in-memory AIFF byte stream.
-std::vector<keel::u8> writeAiffToBytes(const Value &y, double sampleRate,
-                                           keel::u16 bitsPerSample = 16,
-                                           const std::string &title = "",
-                                           const std::string &artist = "",
-                                           const std::string &comment = "");
+keel::Array<keel::u8> writeAiffToBytes(const Value &y, double sampleRate,
+                                       keel::u16 bitsPerSample = 16,
+                                       keel::StringRef title = "",
+                                       keel::StringRef artist = "",
+                                       keel::StringRef comment = "");
 
 } // namespace numkit::audio

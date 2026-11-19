@@ -7,18 +7,17 @@
 
 #include <keel/core.h>
 #include <keel/memory.h>
+#include <keel/ref.h>
 #include "wav_codec.hpp" // For AudioData and AudioInfo
 
 #include <cstdint>
 #include <numkit/value/value.hpp>
-#include <string>
-#include <vector>
 
 namespace numkit::audio {
 
 /// Sniff FLAC magic bytes directly from an in-memory buffer.
 bool isFlacBytes(const keel::u8 *data, keel::usize len);
-bool isFlacBytes(const std::string &b);
+bool isFlacBytes(keel::StringRef b);
 
 /// Decode FLAC audio from in-memory byte buffer.
 AudioData readFlac(const keel::u8 *data, keel::usize len,

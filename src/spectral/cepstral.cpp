@@ -27,6 +27,7 @@
 #include <keel/arena.h>
 #include <keel/array.h>
 #include <keel/complex.h>
+#include <keel/format.h>
 #include <keel/math.h>
 #include <numkit/audio/spectral/cepstral.hpp>
 #include <numkit/audio/spectral/melspec_delta.hpp>
@@ -43,7 +44,6 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include <vector>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -253,24 +253,21 @@ void cepstralCoefficients_argcheck(const Value &S, int numCoeffs, CepstralRect r
                     "numkit:cepstralCoefficients:expectedReal");
     if (S.type() != ValueType::DOUBLE && S.type() != ValueType::SINGLE
         && S.type() != ValueType::EMPTY)
-        throw Error("cepstralCoefficients: input 1 (S) must be double or "
-                    "single (got a " + std::string(mtypeName(S.type()))
-                    + " array).",
+        throw Error(keel::format("cepstralCoefficients: input 1 (S) must be double or "
+                                 "single (got a {} array).", mtypeName(S.type())),
                     0, 0, "cepstralCoefficients", "",
                     "numkit:cepstralCoefficients:invalidType");
     if (numCoeffs <= 1)
-        throw Error("cepstralCoefficients: NumCoeffs must be an integer "
-                    "greater than 1 (got " + std::to_string(numCoeffs) + ").",
+        throw Error(keel::format("cepstralCoefficients: NumCoeffs must be an integer "
+                                 "greater than 1 (got {}).", numCoeffs),
                     0, 0, "cepstralCoefficients", "",
                     "numkit:cepstralCoefficients:BadN");
     if (rect != CepstralRect::None) {
         for (keel::usize i = 0; i < S.numel(); ++i)
             if (!(S.elemAsDouble(i) >= 0.0))
-                throw Error("cepstralCoefficients: input 1 (S) must be "
-                            "nonnegative for the '" +
-                            std::string(rect == CepstralRect::CubicRoot
-                                            ? "cubic-root" : "log") +
-                            "' rectification (got a negative value).",
+                throw Error(keel::format("cepstralCoefficients: input 1 (S) must be "
+                                         "nonnegative for the '{}' rectification (got a negative value).",
+                                         rect == CepstralRect::CubicRoot ? "cubic-root" : "log"),
                             0, 0, "cepstralCoefficients", "",
                             "numkit:cepstralCoefficients:expectedNonnegative");
     }
@@ -283,8 +280,8 @@ void mfcc_argcheck(const Value &x, double fs, int numCoeffs)
         throw Error("mfcc: fs must be a finite positive scalar",
                     0, 0, "mfcc", "", "numkit:mfcc:expectedPositive");
     if (numCoeffs <= 1)
-        throw Error("mfcc: NumCoeffs must be an integer greater than 1 (got "
-                    + std::to_string(numCoeffs) + ").",
+        throw Error(keel::format("mfcc: NumCoeffs must be an integer greater than 1 (got {}).",
+                                 numCoeffs),
                     0, 0, "mfcc", "", "numkit:mfcc:BadN");
 }
 
@@ -295,8 +292,8 @@ void gtcc_argcheck(const Value &x, double fs, int numCoeffs)
         throw Error("gtcc: fs must be a finite positive scalar",
                     0, 0, "gtcc", "", "numkit:gtcc:expectedPositive");
     if (numCoeffs <= 1)
-        throw Error("gtcc: NumCoeffs must be an integer greater than 1 (got "
-                    + std::to_string(numCoeffs) + ").",
+        throw Error(keel::format("gtcc: NumCoeffs must be an integer greater than 1 (got {}).",
+                                 numCoeffs),
                     0, 0, "gtcc", "", "numkit:gtcc:BadN");
 }
 
@@ -319,7 +316,7 @@ Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
     const keel::usize K = static_cast<keel::usize>(numCoeffs);
 
     // Output dims: (d2, K, d3, ...).
-    std::vector<keel::usize> od;
+    keel::Array<keel::usize> od;
     od.push_back(d.dim(1));
     od.push_back(K);
     for (int k = 2; k < d.ndim(); ++k) od.push_back(d.dim(k));

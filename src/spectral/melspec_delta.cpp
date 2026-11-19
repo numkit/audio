@@ -29,6 +29,7 @@
 #include <keel/memory.h>
 #include <keel/arena.h>
 #include <keel/array.h>
+#include <keel/format.h>
 #include <numkit/audio/spectral/melspec_delta.hpp>
 
 // Compute-only TU: Value substrate + Error, no engine. The melSpectrogram
@@ -43,7 +44,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <vector>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -137,8 +137,8 @@ void melSpectrogram_argcheck(const Value &x, double fs, int numBands)
 void audioDelta_argcheck(const Value &x, int windowLength)
 {
     if (windowLength < 3 || (windowLength % 2) == 0)
-        throw Error("audioDelta: windowLength must be an odd integer "
-                    "greater than 1 (got " + std::to_string(windowLength) + ").",
+        throw Error(keel::format("audioDelta: windowLength must be an odd integer "
+                                 "greater than 1 (got {}).", windowLength),
                     0, 0, "audioDelta", "", "numkit:audioDelta:BadWin");
 
     if (x.type() == ValueType::COMPLEX)
@@ -146,8 +146,8 @@ void audioDelta_argcheck(const Value &x, int windowLength)
                     0, 0, "audioDelta", "", "numkit:audioDelta:expectedReal");
     if (x.type() != ValueType::DOUBLE && x.type() != ValueType::SINGLE
         && x.type() != ValueType::EMPTY)
-        throw Error("audioDelta: input 1 (x) must be double or single "
-                    "(got a " + std::string(mtypeName(x.type())) + " array).",
+        throw Error(keel::format("audioDelta: input 1 (x) must be double or single "
+                                 "(got a {} array).", mtypeName(x.type())),
                     0, 0, "audioDelta", "", "numkit:audioDelta:invalidType");
 }
 
@@ -248,7 +248,7 @@ Value audioDeltaFull(const Value &x, int windowLength,
         out = Value::matrix(R, C, wantSingle ? ValueType::SINGLE
                                              : ValueType::DOUBLE, mr);
     else {
-        std::vector<keel::usize> od(d.ndim());
+        keel::Array<keel::usize> od(d.ndim());
         od[0] = R;
         for (int k = 1; k < d.ndim(); ++k) od[k] = d.dim(k);
         out = Value::matrixND(od.data(), static_cast<int>(od.size()),
@@ -267,9 +267,8 @@ Value audioDeltaFull(const Value &x, int windowLength,
         if (!singleState
             && (initialCondition->dims().dim(0) != L - 1
                 || initialCondition->numel() != (L - 1) * C))
-            throw Error("audioDelta: initialCondition must have "
-                        + std::to_string(L - 1) + " rows and "
-                        + std::to_string(C) + " channels.",
+            throw Error(keel::format("audioDelta: initialCondition must have {} rows and {} channels.",
+                                     L - 1, C),
                         0, 0, "audioDelta", "",
                         "numkit:audioDelta:BadInitialConditions");
         if (initialCondition->type() == ValueType::COMPLEX)
