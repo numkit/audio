@@ -137,10 +137,11 @@ if(NOT TARGET numkit_signal_core)
     endif()
 endif()
 
-# Dependency: keelcpp/audiofile (strictly PRIVATE to numkit_audio_core)
+# Dependency: keelcpp/audiofile & keelcpp/audio (strictly PRIVATE to numkit_audio_core)
 foreach(_keel_pair
     "KEEL:keel"
     "KEEL_AUDIOFILE:audiofile"
+    "KEEL_AUDIO:audio"
 )
     string(REPLACE ":" ";" _keel_parts "${_keel_pair}")
     list(GET _keel_parts 0 _keel_var)
@@ -160,6 +161,7 @@ endforeach()
 
 set(KEEL_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(KEEL_AUDIOFILE_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(KEEL_AUDIO_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 
 if(NOT TARGET keel::keel)
     find_package(keel QUIET CONFIG)
@@ -186,6 +188,21 @@ if(NOT TARGET keel::audiofile)
         GIT_TAG        8bcd55a51ce4b6132afb37d364a895dd296aecbe
     )
     FetchContent_MakeAvailable(keel_audiofile)
+endif()
+
+if(NOT TARGET keel::audio)
+    find_package(keel_audio QUIET CONFIG)
+    if(TARGET keel::keel_audio AND NOT TARGET keel::audio)
+        add_library(keel::audio ALIAS keel::keel_audio)
+    endif()
+endif()
+if(NOT TARGET keel::audio)
+    FetchContent_Declare(
+        keel_audio
+        GIT_REPOSITORY https://github.com/keelcpp/audio.git
+        GIT_TAG        399d2ef510b56e2a1a72e4eeb77eaeec109c19b0
+    )
+    FetchContent_MakeAvailable(keel_audio)
 endif()
 
 file(GLOB_RECURSE AUDIO_COMPUTE_SOURCES
@@ -221,7 +238,7 @@ target_include_directories(numkit_audio_core
 
 target_link_libraries(numkit_audio_core
     PUBLIC numkit_value numkit_sys numkit_ops numkit_signal_core
-    PRIVATE keel::audiofile
+    PRIVATE keel::audiofile keel::audio
 )
 
 if(NUMKIT_WITH_SIMD)

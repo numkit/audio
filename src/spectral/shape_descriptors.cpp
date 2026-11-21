@@ -25,6 +25,7 @@
 #include <keel/array.h>
 #include <keel/format.h>
 #include <keel/math.h>
+#include <keel/audio.h>
 #include <numkit/audio/spectral/shape_descriptors.hpp>
 
 // Compute-only TU: Value substrate + Error, no engine. The spectral*
@@ -419,13 +420,6 @@ Value perFrameChannel(keel::Allocator *mr, const Value &X,
     return out;
 }
 
-double centroidOf(const double *X, const double *F, keel::usize M)
-{
-    double sumX = 0.0, sumFX = 0.0;
-    for (keel::usize i = 0; i < M; ++i) { sumX += X[i]; sumFX += F[i] * X[i]; }
-    return (sumX > 0.0) ? sumFX / sumX : 0.0;
-}
-
 } // anon
 
 Value spectralFlux(const Value &x, const Value &f, double p,
@@ -441,7 +435,7 @@ Value spectralCentroid(const Value &x, const Value &f,
     auto d = prepareInput(mr, x, f, false, "spectralCentroid", stft);
     const double *Fd = d.F.doubleData();
     return perFrameChannel(mr, d.X, d, [Fd](const double *col, keel::usize M) {
-        return centroidOf(col, Fd, M);
+        return keel::audio::spectral_centroid({col, M}, {Fd, M});
     });
 }
 Value spectralCentroid(const Value &x, const Value &f, keel::Allocator *mr)
@@ -456,14 +450,7 @@ Value spectralSpread(const Value &x, const Value &f,
     auto d = prepareInput(mr, x, f, false, "spectralSpread", stft);
     const double *Fd = d.F.doubleData();
     return perFrameChannel(mr, d.X, d, [Fd](const double *col, keel::usize M) {
-        const double c = centroidOf(col, Fd, M);
-        double sumX = 0.0, sumDX = 0.0;
-        for (keel::usize i = 0; i < M; ++i) {
-            const double dF = Fd[i] - c;
-            sumX  += col[i];
-            sumDX += dF * dF * col[i];
-        }
-        return (sumX > 0.0) ? std::sqrt(sumDX / sumX) : 0.0;
+        return keel::audio::spectral_spread({col, M}, {Fd, M});
     });
 }
 Value spectralSpread(const Value &x, const Value &f, keel::Allocator *mr)
@@ -479,16 +466,7 @@ Value spectralRolloffPoint(const Value &x, const Value &f, double percentile,
     auto d = prepareInput(mr, x, f, false, "spectralRolloffPoint", stft);
     const double *Fd = d.F.doubleData();
     return perFrameChannel(mr, d.X, d, [Fd, percentile](const double *col, keel::usize M) {
-        double total = 0.0;
-        for (keel::usize i = 0; i < M; ++i) total += col[i];
-        const double thresh = percentile * total;
-        if (total <= 0.0 || M == 0) return 0.0;
-        double accum = 0.0;
-        for (keel::usize i = 0; i < M; ++i) {
-            accum += col[i];
-            if (accum >= thresh) return Fd[i];
-        }
-        return Fd[M - 1];
+        return keel::audio::spectral_rolloff_point({col, M}, {Fd, M}, percentile);
     });
 }
 Value spectralRolloffPoint(const Value &x, const Value &f, double percentile,
@@ -503,14 +481,7 @@ Value spectralDecrease(const Value &x, const Value &f,
 {
     auto d = prepareInput(mr, x, f, false, "spectralDecrease", stft);
     return perFrameChannel(mr, d.X, d, [](const double *col, keel::usize M) {
-        if (M < 2) return 0.0;
-        const double X1 = col[0];
-        double num = 0.0, den = 0.0;
-        for (keel::usize k = 1; k < M; ++k) {
-            num += (col[k] - X1) / static_cast<double>(k);
-            den += col[k];
-        }
-        return (den > 0.0) ? num / den : 0.0;
+        return keel::audio::spectral_decrease({col, M});
     });
 }
 Value spectralDecrease(const Value &x, const Value &f, keel::Allocator *mr)
@@ -525,18 +496,7 @@ Value spectralSlope(const Value &x, const Value &f,
     auto d = prepareInput(mr, x, f, false, "spectralSlope", stft);
     const double *Fd = d.F.doubleData();
     return perFrameChannel(mr, d.X, d, [Fd](const double *col, keel::usize M) {
-        if (M < 2) return 0.0;
-        double meanF = 0.0, meanX = 0.0;
-        for (keel::usize i = 0; i < M; ++i) { meanF += Fd[i]; meanX += col[i]; }
-        meanF /= static_cast<double>(M);
-        meanX /= static_cast<double>(M);
-        double num = 0.0, den = 0.0;
-        for (keel::usize i = 0; i < M; ++i) {
-            const double df = Fd[i] - meanF;
-            num += df * (col[i] - meanX);
-            den += df * df;
-        }
-        return (den > 0.0) ? num / den : 0.0;
+        return keel::audio::spectral_slope({col, M}, {Fd, M});
     });
 }
 Value spectralSlope(const Value &x, const Value &f, keel::Allocator *mr)
@@ -551,11 +511,7 @@ Value spectralCrest(const Value &x, const Value &f,
 {
     auto d = prepareInput(mr, x, f, false, "spectralCrest", stft);
     return perFrameChannel(mr, d.X, d, [](const double *col, keel::usize M) {
-        if (M == 0) return 0.0;
-        double mx = col[0], sm = 0.0;
-        for (keel::usize i = 0; i < M; ++i) { if (col[i] > mx) mx = col[i]; sm += col[i]; }
-        const double mean = sm / static_cast<double>(M);
-        return (mean > 0.0) ? mx / mean : 0.0;
+        return keel::audio::spectral_crest({col, M});
     });
 }
 Value spectralCrest(const Value &x, const Value &f, keel::Allocator *mr)
@@ -568,17 +524,7 @@ Value spectralEntropy(const Value &x, const Value &f,
 {
     auto d = prepareInput(mr, x, f, false, "spectralEntropy", stft);
     return perFrameChannel(mr, d.X, d, [](const double *col, keel::usize M) {
-        if (M < 2) return 0.0;
-        double sm = 0.0;
-        for (keel::usize i = 0; i < M; ++i) sm += col[i];
-        if (sm <= 0.0) return 0.0;
-        double H = 0.0;
-        const double inv_log2 = 1.0 / std::log(2.0);
-        for (keel::usize i = 0; i < M; ++i) {
-            const double q = col[i] / sm;
-            if (q > 0.0) H -= q * std::log(q) * inv_log2;
-        }
-        return H / (std::log(static_cast<double>(M)) * inv_log2);
+        return keel::audio::spectral_entropy({col, M});
     });
 }
 Value spectralEntropy(const Value &x, const Value &f, keel::Allocator *mr)
@@ -591,16 +537,7 @@ Value spectralFlatness(const Value &x, const Value &f,
 {
     auto d = prepareInput(mr, x, f, false, "spectralFlatness", stft);
     return perFrameChannel(mr, d.X, d, [](const double *col, keel::usize M) {
-        if (M == 0) return 0.0;
-        const double eps = std::numeric_limits<double>::epsilon();
-        double sumLog = 0.0, sumX = 0.0;
-        for (keel::usize i = 0; i < M; ++i) {
-            sumLog += std::log(col[i] + eps);
-            sumX   += col[i];
-        }
-        const double geom  = std::exp(sumLog / static_cast<double>(M));
-        const double arith = sumX / static_cast<double>(M);
-        return (arith > 0.0) ? geom / arith : 0.0;
+        return keel::audio::spectral_flatness({col, M});
     });
 }
 Value spectralFlatness(const Value &x, const Value &f, keel::Allocator *mr)
@@ -614,22 +551,7 @@ Value spectralKurtosis(const Value &x, const Value &f,
     auto d = prepareInput(mr, x, f, false, "spectralKurtosis", stft);
     const double *Fd = d.F.doubleData();
     return perFrameChannel(mr, d.X, d, [Fd](const double *col, keel::usize M) {
-        if (M < 2) return 0.0;
-        double sumX = 0.0, sumFX = 0.0;
-        for (keel::usize i = 0; i < M; ++i) { sumX += col[i]; sumFX += Fd[i] * col[i]; }
-        if (sumX <= 0.0) return 0.0;
-        const double centroid = sumFX / sumX;
-        double m2 = 0.0, m4 = 0.0;
-        for (keel::usize i = 0; i < M; ++i) {
-            const double dF = Fd[i] - centroid;
-            const double dF2 = dF * dF;
-            m2 += dF2 * col[i];
-            m4 += dF2 * dF2 * col[i];
-        }
-        const double spread2 = m2 / sumX;
-        if (spread2 <= 0.0) return 0.0;
-        const double spread4 = spread2 * spread2;
-        return m4 / (spread4 * sumX);
+        return keel::audio::spectral_kurtosis({col, M}, {Fd, M});
     });
 }
 Value spectralKurtosis(const Value &x, const Value &f, keel::Allocator *mr)
@@ -643,21 +565,7 @@ Value spectralSkewness(const Value &x, const Value &f,
     auto d = prepareInput(mr, x, f, false, "spectralSkewness", stft);
     const double *Fd = d.F.doubleData();
     return perFrameChannel(mr, d.X, d, [Fd](const double *col, keel::usize M) {
-        if (M < 2) return 0.0;
-        double sumX = 0.0, sumFX = 0.0;
-        for (keel::usize i = 0; i < M; ++i) { sumX += col[i]; sumFX += Fd[i] * col[i]; }
-        if (sumX <= 0.0) return 0.0;
-        const double centroid = sumFX / sumX;
-        double m2 = 0.0, m3 = 0.0;
-        for (keel::usize i = 0; i < M; ++i) {
-            const double dF = Fd[i] - centroid;
-            m2 += dF * dF * col[i];
-            m3 += dF * dF * dF * col[i];
-        }
-        const double spread2 = m2 / sumX;
-        if (spread2 <= 0.0) return 0.0;
-        const double spread3 = spread2 * std::sqrt(spread2);
-        return m3 / (spread3 * sumX);
+        return keel::audio::spectral_skewness({col, M}, {Fd, M});
     });
 }
 Value spectralSkewness(const Value &x, const Value &f, keel::Allocator *mr)
