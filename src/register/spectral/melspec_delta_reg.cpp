@@ -24,7 +24,7 @@ void melSpectrogram_reg(keel::ArrayRef<Value> args, keel::usize nargout,
                         keel::MutArrayRef<Value> outs, CallContext &ctx)
 {
     argcheck::checkNargin(args.size(), 2, 3, "melSpectrogram");
-    int numBands = 32;
+    keel::i32 numBands = 32;
     if (args.size() >= 3) numBands = argcheck::expectedPositiveInteger(
         argcheck::expectedReal(args[2], 3, "numBands", "melSpectrogram"), 3, "numBands", "melSpectrogram");
     auto [S, F, T] = melSpectrogram(args[0], args[1].toScalar(), numBands,
@@ -40,7 +40,7 @@ void audioDelta_reg(keel::ArrayRef<Value> args, keel::usize nargout,
     // Probed R2025b: (x[, windowLength[, initialCondition]]) with an
     // optional second output (finalCondition).
     argcheck::checkNargin(args.size(), 1, 3, "audioDelta");
-    int wl = 9;
+    keel::i32 wl = 9;
     if (args.size() >= 2)
         wl = argcheck::expectedPositiveInteger(
             argcheck::expectedReal(args[1], 2, "windowLength", "audioDelta"),

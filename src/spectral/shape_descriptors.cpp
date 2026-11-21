@@ -60,7 +60,7 @@ struct Stft {
 // reference's check order (window first, then overlap, FFT length,
 // range) — the blame follows the first failing argument.
 static void requireFloatClass(const Value &v, const char *fn,
-                              const char *argName, int argNum)
+                              const char *argName, keel::i32 argNum)
 {
     if (v.type() == ValueType::SINGLE || v.type() == ValueType::DOUBLE
         || v.type() == ValueType::COMPLEX || v.type() == ValueType::EMPTY)
@@ -113,7 +113,7 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
         if (wNatural > 120.0) {
             if (wNatural > keel::as<keel::f64>(xLen))
                 throw Error(keel::format("{}: the default window length round(0.03·f) = {} exceeds the signal length {}.",
-                                         fn, keel::as<long long>(wNatural), xLen),
+                                         fn, keel::as<keel::i64>(wNatural), xLen),
                             0, 0, fn, "",
                             keel::format("numkit:{}:BadWindowLength", fn));
             winLen = keel::as<keel::usize>(wNatural);

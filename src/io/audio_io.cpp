@@ -144,7 +144,7 @@ AudioData bufferToAudioData(const keel::audiofile::AudioBuffer &buf, bool native
             res.y = Value::matrix(frames, channels, ValueType::INT16, mr);
             for (keel::usize i = 0; i < frames * channels; ++i) {
                 const auto s8 = keel::as<keel::i8>(buf.data[i]);
-                res.y.int16DataMut()[i] = keel::as<keel::i16>(keel::as<int>(s8) << 8);
+                res.y.int16DataMut()[i] = keel::as<keel::i16>(keel::as<keel::i32>(s8) << 8);
             }
             break;
         case keel::audiofile::AudioSampleType::I16:
@@ -503,21 +503,21 @@ keel::Array<keel::u8> writeMidiToBytes(const Value &notesMatrix,
 
     keel::Array<keel::audiofile::MidiNote> notes(numNotes);
     for (keel::usize i = 0; i < numNotes; ++i) {
-        int trk = 0;
+        keel::i32 trk = 0;
         if (d.cols() >= 1) {
-            trk = std::max(0, keel::as<int>(notesMatrix.elemAsDouble(0 * numNotes + i)) - 1);
+            trk = std::max(0, keel::as<keel::i32>(notesMatrix.elemAsDouble(0 * numNotes + i)) - 1);
         }
-        int ch = 0;
+        keel::i32 ch = 0;
         if (d.cols() >= 2) {
-            ch = std::clamp(keel::as<int>(notesMatrix.elemAsDouble(1 * numNotes + i)) - 1, 0, 15);
+            ch = std::clamp(keel::as<keel::i32>(notesMatrix.elemAsDouble(1 * numNotes + i)) - 1, 0, 15);
         }
-        int noteNum = 60;
+        keel::i32 noteNum = 60;
         if (d.cols() >= 3) {
-            noteNum = std::clamp(keel::as<int>(notesMatrix.elemAsDouble(2 * numNotes + i)), 0, 127);
+            noteNum = std::clamp(keel::as<keel::i32>(notesMatrix.elemAsDouble(2 * numNotes + i)), 0, 127);
         }
-        int vel = 64;
+        keel::i32 vel = 64;
         if (d.cols() >= 4) {
-            vel = std::clamp(keel::as<int>(notesMatrix.elemAsDouble(3 * numNotes + i)), 0, 127);
+            vel = std::clamp(keel::as<keel::i32>(notesMatrix.elemAsDouble(3 * numNotes + i)), 0, 127);
         }
         const keel::f64 startSec = (d.cols() >= 5) ? std::max(0.0, notesMatrix.elemAsDouble(4 * numNotes + i)) : 0.0;
         const keel::f64 endSec = (d.cols() >= 6)

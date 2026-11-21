@@ -49,7 +49,7 @@ bool isStandard532_2(const Value &v)
         keel::String lower = v.toString();
         // Case-insensitive compare.
         std::transform(lower.begin(), lower.end(), lower.begin(),
-                        [](unsigned char c) { return keel::to_ascii_lower(c); });
+                        [](keel::u8 c) { return keel::to_ascii_lower(c); });
         return (lower == "iso 532-2");
     }
     return false;

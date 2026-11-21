@@ -45,11 +45,11 @@ void pitch_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/,
             continue;
         keel::String name = args[i].toString();
         std::transform(name.begin(), name.end(), name.begin(),
-                        [](unsigned char c) { return keel::to_ascii_lower(c); });
+                        [](keel::u8 c) { return keel::to_ascii_lower(c); });
         if (name == "method") {
             keel::String m = args[i + 1].toString();
             std::transform(m.begin(), m.end(), m.begin(),
-                            [](unsigned char c) { return keel::to_ascii_upper(c); });
+                            [](keel::u8 c) { return keel::to_ascii_upper(c); });
             method = keel::move(m);
         } else if (name == "range") {
             const Value &r = args[i + 1];

@@ -28,7 +28,7 @@ keel::audio::CepstralRectification toKeelRect(CepstralRect rect) noexcept
     return keel::audio::CepstralRectification::kLog;
 }
 
-void cepstralCoefficients_argcheck(const Value &S, int numCoeffs, CepstralRect rect)
+void cepstralCoefficients_argcheck(const Value &S, keel::i32 numCoeffs, CepstralRect rect)
 {
     if (S.type() == ValueType::COMPLEX)
         throw Error("cepstralCoefficients: input 1 (S) must be real.",
@@ -56,7 +56,7 @@ void cepstralCoefficients_argcheck(const Value &S, int numCoeffs, CepstralRect r
     }
 }
 
-void mfcc_argcheck(const Value &x, keel::f64 fs, int numCoeffs)
+void mfcc_argcheck(const Value &x, keel::f64 fs, keel::i32 numCoeffs)
 {
     (void)x;
     if (!(fs > 0.0) || !std::isfinite(fs))
@@ -68,7 +68,7 @@ void mfcc_argcheck(const Value &x, keel::f64 fs, int numCoeffs)
                     0, 0, "mfcc", "", "numkit:mfcc:BadN");
 }
 
-void gtcc_argcheck(const Value &x, keel::f64 fs, int numCoeffs)
+void gtcc_argcheck(const Value &x, keel::f64 fs, keel::i32 numCoeffs)
 {
     (void)x;
     if (!(fs > 0.0) || !std::isfinite(fs))
@@ -82,7 +82,7 @@ void gtcc_argcheck(const Value &x, keel::f64 fs, int numCoeffs)
 
 } // anon
 
-Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
+Value cepstralCoefficients(const Value &S, keel::i32 numCoeffs, CepstralRect rect,
                            keel::Allocator *mr)
 {
     cepstralCoefficients_argcheck(S, numCoeffs, rect);
@@ -95,13 +95,13 @@ Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
     keel::Array<keel::usize> od;
     od.push_back(d.dim(1));
     od.push_back(K);
-    for (int k = 2; k < d.ndim(); ++k) od.push_back(d.dim(k));
+    for (keel::i32 k = 2; k < d.ndim(); ++k) od.push_back(d.dim(k));
     Value out;
     if (od.size() == 2)
         out = Value::matrix(od[0], od[1], wantSingle ? ValueType::SINGLE
                                                      : ValueType::DOUBLE, mr);
     else
-        out = Value::matrixND(od.data(), keel::as<int>(od.size()),
+        out = Value::matrixND(od.data(), keel::as<keel::i32>(od.size()),
                               wantSingle ? ValueType::SINGLE
                                          : ValueType::DOUBLE, mr);
     const keel::usize pageFrames = d.dim(1);
@@ -137,7 +137,7 @@ Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
 }
 
 std::tuple<Value, Value, Value>
-mfcc(const Value &x, keel::f64 fs, int numCoeffs, keel::Allocator *mr)
+mfcc(const Value &x, keel::f64 fs, keel::i32 numCoeffs, keel::Allocator *mr)
 {
     mfcc_argcheck(x, fs, numCoeffs);
     const keel::usize N = x.numel();
@@ -175,7 +175,7 @@ mfcc(const Value &x, keel::f64 fs, int numCoeffs, keel::Allocator *mr)
 }
 
 std::tuple<Value, Value, Value>
-gtcc(const Value &x, keel::f64 fs, int numCoeffs, keel::Allocator *mr)
+gtcc(const Value &x, keel::f64 fs, keel::i32 numCoeffs, keel::Allocator *mr)
 {
     gtcc_argcheck(x, fs, numCoeffs);
     const keel::usize N = x.numel();

@@ -33,7 +33,7 @@ namespace numkit::audio {
 enum class CepstralRect { Log, CubicRoot, None };
 
 Value cepstralCoefficients(const Value &                S,
-                           int                          numCoeffs = 13,
+                           keel::i32                          numCoeffs = 13,
                            CepstralRect                 rect      = CepstralRect::Log,
                            keel::Allocator *  mr        = nullptr);
 
@@ -59,7 +59,7 @@ Value cepstralCoefficients(const Value &                S,
 std::tuple<Value, Value, Value>
 mfcc(const Value &                x,
      keel::f64                       fs,
-     int                          numCoeffs = 13,
+     keel::i32                          numCoeffs = 13,
      keel::Allocator *  mr        = nullptr);
 
 /// Gammatone cepstral coefficients (GTCC).
@@ -80,7 +80,7 @@ mfcc(const Value &                x,
 std::tuple<Value, Value, Value>
 gtcc(const Value &                x,
      keel::f64                       fs,
-     int                          numCoeffs = 13,
+     keel::i32                          numCoeffs = 13,
      keel::Allocator *  mr        = nullptr);
 
 

@@ -43,7 +43,7 @@ namespace numkit::audio {
 std::tuple<Value, Value, Value>
 melSpectrogram(const Value &                x,
                keel::f64                       fs,
-               int                          numBands = 32,
+               keel::i32                          numBands = 32,
                keel::Allocator *  mr       = nullptr);
 
 /// Locally-smoothed first derivative along the time axis.
@@ -59,13 +59,13 @@ melSpectrogram(const Value &                x,
 ///
 /// @see melSpectrogram, mfcc
 Value audioDelta(const Value &                x,
-                 int                          windowLength = 9,
+                 keel::i32                          windowLength = 9,
                  keel::Allocator *  mr           = nullptr);
 
 /// Full form: optional filter zi-state in, zf-state out (the reference's
 /// initialCondition argument and second output; shapes (wl-1) x channels).
 Value audioDeltaFull(const Value &                x,
-                     int                          windowLength,
+                     keel::i32                          windowLength,
                      const Value *                initialCondition,
                      Value *                      finalCondition,
                      keel::Allocator *  mr           = nullptr);

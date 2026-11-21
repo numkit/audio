@@ -28,7 +28,7 @@ void cepstralCoefficients_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*
     // insensitively with unambiguous prefixes); a positional second
     // argument is TooManyInputs in the reference.
     argcheck::checkNargin(args.size(), 1, "cepstralCoefficients");
-    int nc = 13;
+    keel::i32 nc = 13;
     CepstralRect rect = CepstralRect::Log;
     const Value &S = args[0];
     for (keel::usize i = 1; i < args.size(); i += 2) {
@@ -71,7 +71,7 @@ void mfcc_reg(keel::ArrayRef<Value> args, keel::usize nargout,
               keel::MutArrayRef<Value> outs, CallContext &ctx)
 {
     argcheck::checkNargin(args.size(), 2, 3, "mfcc");
-    int nc = 13;
+    keel::i32 nc = 13;
     if (args.size() >= 3) nc = argcheck::expectedPositiveInteger(
         argcheck::expectedReal(args[2], 3, "numCoeffs", "mfcc"), 3, "numCoeffs", "mfcc");
     auto [c, d, dd] = mfcc(args[0], args[1].toScalar(), nc,
@@ -85,7 +85,7 @@ void gtcc_reg(keel::ArrayRef<Value> args, keel::usize nargout,
               keel::MutArrayRef<Value> outs, CallContext &ctx)
 {
     argcheck::checkNargin(args.size(), 2, 3, "gtcc");
-    int nc = 13;
+    keel::i32 nc = 13;
     if (args.size() >= 3) nc = argcheck::expectedPositiveInteger(
         argcheck::expectedReal(args[2], 3, "numCoeffs", "gtcc"), 3, "numCoeffs", "gtcc");
     auto [c, d, dd] = gtcc(args[0], args[1].toScalar(), nc,

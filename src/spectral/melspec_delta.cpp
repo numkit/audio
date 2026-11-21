@@ -23,7 +23,7 @@ namespace numkit::audio {
 
 namespace {
 
-void melSpectrogram_argcheck(const Value &x, keel::f64 fs, int numBands)
+void melSpectrogram_argcheck(const Value &x, keel::f64 fs, keel::i32 numBands)
 {
     (void)x;
     if (!(fs > 0.0) || !std::isfinite(fs))
@@ -34,7 +34,7 @@ void melSpectrogram_argcheck(const Value &x, keel::f64 fs, int numBands)
                     0, 0, "melSpectrogram", "", "numkit:melSpectrogram:expectedPositiveInteger");
 }
 
-void audioDelta_argcheck(const Value &x, int windowLength)
+void audioDelta_argcheck(const Value &x, keel::i32 windowLength)
 {
     if (windowLength < 3 || (windowLength % 2) == 0)
         throw Error(keel::format("audioDelta: windowLength must be an odd integer "
@@ -54,7 +54,7 @@ void audioDelta_argcheck(const Value &x, int windowLength)
 } // anon
 
 std::tuple<Value, Value, Value>
-melSpectrogram(const Value &x, keel::f64 fs, int numBands,
+melSpectrogram(const Value &x, keel::f64 fs, keel::i32 numBands,
                keel::Allocator *mr)
 {
     melSpectrogram_argcheck(x, fs, numBands);
@@ -111,7 +111,7 @@ melSpectrogram(const Value &x, keel::f64 fs, int numBands,
     return {S, F, T};
 }
 
-Value audioDeltaFull(const Value &x, int windowLength,
+Value audioDeltaFull(const Value &x, keel::i32 windowLength,
                      const Value *initialCondition, Value *finalCondition,
                      keel::Allocator *mr)
 {
@@ -123,7 +123,7 @@ Value audioDeltaFull(const Value &x, int windowLength,
     const Dims &d = x.dims();
     const keel::usize R = d.dim(0);
     keel::usize C = 1;
-    for (int k = 1; k < d.ndim(); ++k) C *= d.dim(k);
+    for (keel::i32 k = 1; k < d.ndim(); ++k) C *= d.dim(k);
     Value out;
     if (d.ndim() <= 2)
         out = Value::matrix(R, C, wantSingle ? ValueType::SINGLE
@@ -131,8 +131,8 @@ Value audioDeltaFull(const Value &x, int windowLength,
     else {
         keel::Array<keel::usize> od(d.ndim());
         od[0] = R;
-        for (int k = 1; k < d.ndim(); ++k) od[k] = d.dim(k);
-        out = Value::matrixND(od.data(), keel::as<int>(od.size()),
+        for (keel::i32 k = 1; k < d.ndim(); ++k) od[k] = d.dim(k);
+        out = Value::matrixND(od.data(), keel::as<keel::i32>(od.size()),
                               wantSingle ? ValueType::SINGLE
                                          : ValueType::DOUBLE, mr);
     }
@@ -197,7 +197,7 @@ Value audioDeltaFull(const Value &x, int windowLength,
     return out;
 }
 
-Value audioDelta(const Value &x, int windowLength, keel::Allocator *mr)
+Value audioDelta(const Value &x, keel::i32 windowLength, keel::Allocator *mr)
 {
     return audioDeltaFull(x, windowLength, nullptr, nullptr, mr);
 }
