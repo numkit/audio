@@ -99,11 +99,11 @@ void audiowriteMatrix_argcheck(keel::usize numFrames, keel::usize numChannels) {
 keel::audiofile::AudioDecodeOptions makeDecodeOpts(keel::i64 startSample, keel::i64 endSample, bool nativeType) {
     keel::audiofile::AudioDecodeOptions opts;
     const keel::i64 s0 = (startSample < 1) ? 0 : (startSample - 1);
-    opts.start_frame = static_cast<keel::u64>(s0);
+    opts.start_frame = keel::as<keel::u64>(s0);
     if (endSample < 0) {
         opts.end_frame = ~keel::u64{0};
     } else {
-        const keel::u64 s1 = static_cast<keel::u64>(endSample);
+        const keel::u64 s1 = keel::as<keel::u64>(endSample);
         opts.end_frame = (s1 < opts.start_frame) ? opts.start_frame : s1;
     }
     opts.native_sample_type = nativeType;
@@ -122,8 +122,8 @@ AudioData bufferToAudioData(const keel::audiofile::AudioBuffer &buf, bool native
     res.artist = keel::String::from(buf.metadata.artist.as_ref());
     res.comment = keel::String::from(buf.metadata.comment.as_ref());
 
-    const keel::usize frames = static_cast<keel::usize>(buf.frames);
-    const keel::usize channels = static_cast<keel::usize>(buf.channels);
+    const keel::usize frames = keel::as<keel::usize>(buf.frames);
+    const keel::usize channels = keel::as<keel::usize>(buf.channels);
     if (frames == 0) {
         res.y = Value::matrix(0, channels, ValueType::DOUBLE, mr);
         return res;
@@ -143,8 +143,8 @@ AudioData bufferToAudioData(const keel::audiofile::AudioBuffer &buf, bool native
         case keel::audiofile::AudioSampleType::I8:
             res.y = Value::matrix(frames, channels, ValueType::INT16, mr);
             for (keel::usize i = 0; i < frames * channels; ++i) {
-                const auto s8 = static_cast<keel::i8>(buf.data[i]);
-                res.y.int16DataMut()[i] = static_cast<keel::i16>(static_cast<int>(s8) << 8);
+                const auto s8 = keel::as<keel::i8>(buf.data[i]);
+                res.y.int16DataMut()[i] = keel::as<keel::i16>(keel::as<int>(s8) << 8);
             }
             break;
         case keel::audiofile::AudioSampleType::I16:
@@ -200,14 +200,14 @@ PreparedAudioInput prepareEncodeInput(const Value &y, double sampleRate, bool pr
     if (preserveSingle && y.type() == ValueType::SINGLE) {
         out.view = keel::audiofile::AudioView::from_f32(
             keel::ArrayRef<keel::f32>(y.singleData(), numFrames * numChannels),
-            numFrames, static_cast<keel::u16>(numChannels), sampleRate,
+            numFrames, keel::as<keel::u16>(numChannels), sampleRate,
             keel::audiofile::AudioChannelLayout::Planar);
         return out;
     }
     if (y.type() == ValueType::DOUBLE) {
         out.view = keel::audiofile::AudioView::from_f64(
             keel::ArrayRef<keel::f64>(y.doubleData(), numFrames * numChannels),
-            numFrames, static_cast<keel::u16>(numChannels), sampleRate,
+            numFrames, keel::as<keel::u16>(numChannels), sampleRate,
             keel::audiofile::AudioChannelLayout::Planar);
         return out;
     }
@@ -218,7 +218,7 @@ PreparedAudioInput prepareEncodeInput(const Value &y, double sampleRate, bool pr
     }
     out.view = keel::audiofile::AudioView::from_f64(
         keel::ArrayRef<keel::f64>(out.promoted.data(), out.promoted.size()),
-        numFrames, static_cast<keel::u16>(numChannels), sampleRate,
+        numFrames, keel::as<keel::u16>(numChannels), sampleRate,
         keel::audiofile::AudioChannelLayout::Planar);
     return out;
 }
@@ -479,10 +479,10 @@ Value readMidi(const keel::u8 *data, keel::usize len,
     double *dst = out.doubleDataMut();
     for (keel::usize i = 0; i < numNotes; ++i) {
         const auto &n = notes[i];
-        dst[0 * numNotes + i] = static_cast<double>(n.track + 1u);
-        dst[1 * numNotes + i] = static_cast<double>(n.channel + 1u);
-        dst[2 * numNotes + i] = static_cast<double>(n.note_number);
-        dst[3 * numNotes + i] = static_cast<double>(n.velocity);
+        dst[0 * numNotes + i] = keel::as<double>(n.track + 1u);
+        dst[1 * numNotes + i] = keel::as<double>(n.channel + 1u);
+        dst[2 * numNotes + i] = keel::as<double>(n.note_number);
+        dst[3 * numNotes + i] = keel::as<double>(n.velocity);
         dst[4 * numNotes + i] = n.start_time_sec;
         dst[5 * numNotes + i] = n.end_time_sec;
     }
@@ -505,19 +505,19 @@ keel::Array<keel::u8> writeMidiToBytes(const Value &notesMatrix,
     for (keel::usize i = 0; i < numNotes; ++i) {
         int trk = 0;
         if (d.cols() >= 1) {
-            trk = std::max(0, static_cast<int>(notesMatrix.elemAsDouble(0 * numNotes + i)) - 1);
+            trk = std::max(0, keel::as<int>(notesMatrix.elemAsDouble(0 * numNotes + i)) - 1);
         }
         int ch = 0;
         if (d.cols() >= 2) {
-            ch = std::clamp(static_cast<int>(notesMatrix.elemAsDouble(1 * numNotes + i)) - 1, 0, 15);
+            ch = std::clamp(keel::as<int>(notesMatrix.elemAsDouble(1 * numNotes + i)) - 1, 0, 15);
         }
         int noteNum = 60;
         if (d.cols() >= 3) {
-            noteNum = std::clamp(static_cast<int>(notesMatrix.elemAsDouble(2 * numNotes + i)), 0, 127);
+            noteNum = std::clamp(keel::as<int>(notesMatrix.elemAsDouble(2 * numNotes + i)), 0, 127);
         }
         int vel = 64;
         if (d.cols() >= 4) {
-            vel = std::clamp(static_cast<int>(notesMatrix.elemAsDouble(3 * numNotes + i)), 0, 127);
+            vel = std::clamp(keel::as<int>(notesMatrix.elemAsDouble(3 * numNotes + i)), 0, 127);
         }
         const double startSec = (d.cols() >= 5) ? std::max(0.0, notesMatrix.elemAsDouble(4 * numNotes + i)) : 0.0;
         const double endSec = (d.cols() >= 6)
@@ -525,10 +525,10 @@ keel::Array<keel::u8> writeMidiToBytes(const Value &notesMatrix,
             : (startSec + 0.5);
 
         keel::audiofile::MidiNote kn;
-        kn.track = static_cast<keel::u16>(trk);
-        kn.channel = static_cast<keel::u8>(ch);
-        kn.note_number = static_cast<keel::u8>(noteNum);
-        kn.velocity = static_cast<keel::u8>(vel);
+        kn.track = keel::as<keel::u16>(trk);
+        kn.channel = keel::as<keel::u8>(ch);
+        kn.note_number = keel::as<keel::u8>(noteNum);
+        kn.velocity = keel::as<keel::u8>(vel);
         kn.start_time_sec = startSec;
         kn.end_time_sec = endSec;
         kn.duration_sec = endSec - startSec;

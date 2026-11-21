@@ -59,13 +59,13 @@ melSpectrogram(const Value &x, double fs, int numBands,
 {
     melSpectrogram_argcheck(x, fs, numBands);
     const keel::usize N = x.numel();
-    const keel::usize winLen  = static_cast<keel::usize>(std::round(fs * 0.03));
-    const keel::usize overlap = static_cast<keel::usize>(std::round(fs * 0.02));
+    const keel::usize winLen  = keel::as<keel::usize>(std::round(fs * 0.03));
+    const keel::usize overlap = keel::as<keel::usize>(std::round(fs * 0.02));
     const keel::usize hop = winLen - overlap;
     const keel::usize fftLen = winLen;
     const keel::usize H = fftLen / 2 + 1;
     const keel::usize numFrames = (N >= winLen) ? ((N - winLen) / hop + 1) : 0;
-    const keel::usize M = static_cast<keel::usize>(numBands);
+    const keel::usize M = keel::as<keel::usize>(numBands);
 
     Value S = Value::matrix(M, numFrames, ValueType::DOUBLE, mr);
     Value F = Value::matrix(1, M, ValueType::DOUBLE, mr);
@@ -91,7 +91,7 @@ melSpectrogram(const Value &x, double fs, int numBands,
     // Time vector.
     double *td = T.doubleDataMut();
     for (keel::usize f = 0; f < numFrames; ++f)
-        td[f] = (static_cast<double>(f * hop) + static_cast<double>(winLen) / 2.0) / fs;
+        td[f] = (keel::as<double>(f * hop) + keel::as<double>(winLen) / 2.0) / fs;
 
     // Per-frame: window, FFT, power, mel-filterbank.
     keel::Array<double> frame(winLen, scratch.allocator());
@@ -117,7 +117,7 @@ Value audioDeltaFull(const Value &x, int windowLength,
 {
     audioDelta_argcheck(x, windowLength);
 
-    const keel::usize L = static_cast<keel::usize>(windowLength);
+    const keel::usize L = keel::as<keel::usize>(windowLength);
     const keel::usize stateLen = L - 1;
     const bool wantSingle = x.type() == ValueType::SINGLE;
     const Dims &d = x.dims();
@@ -132,7 +132,7 @@ Value audioDeltaFull(const Value &x, int windowLength,
         keel::Array<keel::usize> od(d.ndim());
         od[0] = R;
         for (int k = 1; k < d.ndim(); ++k) od[k] = d.dim(k);
-        out = Value::matrixND(od.data(), static_cast<int>(od.size()),
+        out = Value::matrixND(od.data(), keel::as<int>(od.size()),
                               wantSingle ? ValueType::SINGLE
                                          : ValueType::DOUBLE, mr);
     }
@@ -177,7 +177,7 @@ Value audioDeltaFull(const Value &x, int windowLength,
         (void)keel::audio::audio_delta(colIn, L, colOut, ziCol, zfCol, mr);
 
         if (of) {
-            for (keel::usize n = 0; n < R; ++n) of[n + c * R] = static_cast<float>(colOut[n]);
+            for (keel::usize n = 0; n < R; ++n) of[n + c * R] = keel::as<float>(colOut[n]);
         } else {
             for (keel::usize n = 0; n < R; ++n) od[n + c * R] = colOut[n];
         }
@@ -190,7 +190,7 @@ Value audioDeltaFull(const Value &x, int windowLength,
         double *fd = wantSingle ? nullptr : finalCondition->doubleDataMut();
         float *ff = wantSingle ? finalCondition->singleDataMut() : nullptr;
         for (keel::usize i = 0; i < stateLen * C; ++i) {
-            if (ff) ff[i] = static_cast<float>(zfAll[i]);
+            if (ff) ff[i] = keel::as<float>(zfAll[i]);
             else    fd[i] = zfAll[i];
         }
     }

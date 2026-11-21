@@ -90,7 +90,7 @@ Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
     const bool wantSingle = S.type() == ValueType::SINGLE;
     const Dims &d = S.dims();
     const keel::usize L = d.dim(0);
-    const keel::usize K = static_cast<keel::usize>(numCoeffs);
+    const keel::usize K = keel::as<keel::usize>(numCoeffs);
 
     keel::Array<keel::usize> od;
     od.push_back(d.dim(1));
@@ -101,7 +101,7 @@ Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
         out = Value::matrix(od[0], od[1], wantSingle ? ValueType::SINGLE
                                                      : ValueType::DOUBLE, mr);
     else
-        out = Value::matrixND(od.data(), static_cast<int>(od.size()),
+        out = Value::matrixND(od.data(), keel::as<int>(od.size()),
                               wantSingle ? ValueType::SINGLE
                                          : ValueType::DOUBLE, mr);
     const keel::usize pageFrames = d.dim(1);
@@ -142,7 +142,7 @@ mfcc(const Value &x, double fs, int numCoeffs, keel::Allocator *mr)
     mfcc_argcheck(x, fs, numCoeffs);
     const keel::usize N = x.numel();
     const keel::usize numFrames = keel::audio::audio_frame_count(N, fs, 0.03, 0.02);
-    const keel::usize NC = static_cast<keel::usize>(numCoeffs);
+    const keel::usize NC = keel::as<keel::usize>(numCoeffs);
 
     Value out = Value::matrix(numFrames, numFrames == 0 ? 0 : (NC + 1),
                               ValueType::DOUBLE, mr);
@@ -180,9 +180,9 @@ gtcc(const Value &x, double fs, int numCoeffs, keel::Allocator *mr)
     gtcc_argcheck(x, fs, numCoeffs);
     const keel::usize N = x.numel();
     const keel::usize numFrames = keel::audio::audio_frame_count(N, fs, 0.03, 0.02);
-    const keel::usize NC = static_cast<keel::usize>(numCoeffs);
+    const keel::usize NC = keel::as<keel::usize>(numCoeffs);
     const double diffErb = std::ceil(keel::audio::hz_to_erb(fs * 0.5) - keel::audio::hz_to_erb(50.0));
-    const keel::usize numBands = (diffErb > 0.0) ? static_cast<keel::usize>(diffErb) : 0;
+    const keel::usize numBands = (diffErb > 0.0) ? keel::as<keel::usize>(diffErb) : 0;
 
     Value out = Value::matrix(numFrames, numFrames == 0 ? 0 : (NC + 1),
                               ValueType::DOUBLE, mr);

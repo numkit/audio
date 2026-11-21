@@ -111,12 +111,12 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
     if (!haveWin) {
         const double wNatural = std::round(fs * 0.03);
         if (wNatural > 120.0) {
-            if (wNatural > static_cast<double>(xLen))
+            if (wNatural > keel::as<double>(xLen))
                 throw Error(keel::format("{}: the default window length round(0.03·f) = {} exceeds the signal length {}.",
-                                         fn, static_cast<long long>(wNatural), xLen),
+                                         fn, keel::as<long long>(wNatural), xLen),
                             0, 0, fn, "",
                             keel::format("numkit:{}:BadWindowLength", fn));
-            winLen = static_cast<keel::usize>(wNatural);
+            winLen = keel::as<keel::usize>(wNatural);
             win.assign(winLen, 1.0);
         } else if (!haveOvl) {
             winLen = std::min<keel::usize>(64, xLen);
@@ -125,8 +125,8 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
             // "8 segments" geometry: window sized so that 8 hops of
             // (window − ovl) tile the signal exactly.
             const double ov0 = opts.OverlapLength.elemAsDouble(0);
-            winLen = static_cast<keel::usize>(
-                std::floor((static_cast<double>(xLen) + 7.0 * ov0) / 8.0));
+            winLen = keel::as<keel::usize>(
+                std::floor((keel::as<double>(xLen) + 7.0 * ov0) / 8.0));
             win.assign(winLen, 1.0);
         }
     } else {
@@ -164,7 +164,7 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
     keel::usize overlap;
     if (!haveOvl) {
         const double oNat = std::round(fs * 0.02);
-        overlap = (oNat > 80.0) ? static_cast<keel::usize>(oNat)
+        overlap = (oNat > 80.0) ? keel::as<keel::usize>(oNat)
                                 : winLen / 2;      // fix(0.5·windowLength)
     } else {
         const Value &O = opts.OverlapLength;
@@ -186,12 +186,12 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
             throw Error(keel::format("{}: input OverlapLength must be nonnegative.", fn),
                         0, 0, fn, "",
                         keel::format("numkit:{}:expectedNonnegative", fn));
-        if (v >= static_cast<double>(winLen))
+        if (v >= keel::as<double>(winLen))
             throw Error(keel::format("{}: OverlapLength must be smaller than the window length {}.",
                                      fn, winLen),
                         0, 0, fn, "",
                         keel::format("numkit:{}:BadOverlapLength", fn));
-        overlap = static_cast<keel::usize>(v);
+        overlap = keel::as<keel::usize>(v);
     }
 
     // ── FFT length ──
@@ -215,7 +215,7 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
             throw Error(keel::format("{}: FFTLength must be at least 2.", fn),
                         0, 0, fn, "",
                         keel::format("numkit:{}:mustBeGreaterThanOrEqual", fn));
-        nfft = static_cast<keel::usize>(v);
+        nfft = keel::as<keel::usize>(v);
     }
     if (nfft < winLen)
         throw Error(keel::format("{}: the FFT length must be greater than or equal to the window length, {}.",
@@ -263,10 +263,10 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
         (xLen >= winLen) ? ((xLen - winLen) / hop + 1) : 0;
 
     // Selected bins (1-based in the reference; 0-based here after −1).
-    const keel::usize binLow  = static_cast<keel::usize>(
-        std::ceil(rLo * static_cast<double>(nfft) / fs + 1.0));
-    const keel::usize binHigh = static_cast<keel::usize>(
-        std::floor(rHi * static_cast<double>(nfft) / fs + 1.0));
+    const keel::usize binLow  = keel::as<keel::usize>(
+        std::ceil(rLo * keel::as<double>(nfft) / fs + 1.0));
+    const keel::usize binHigh = keel::as<keel::usize>(
+        std::floor(rHi * keel::as<double>(nfft) / fs + 1.0));
     const keel::usize M = (binHigh >= binLow) ? (binHigh - binLow + 1) : 0;
 
     Stft s;
@@ -278,11 +278,11 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
 
     double *fd = s.F.doubleDataMut();
     for (keel::usize k = 0; k < M; ++k)
-        fd[k] = (fs / static_cast<double>(nfft))
-                * static_cast<double>(binLow - 1 + k);
+        fd[k] = (fs / keel::as<double>(nfft))
+                * keel::as<double>(binLow - 1 + k);
     if ((nfft % 2) != 0 && binHigh == nfft / 2 + 1 && M > 0)
-        fd[M - 1] = fs * static_cast<double>(nfft - 1)
-                    / (2.0 * static_cast<double>(nfft));
+        fd[M - 1] = fs * keel::as<double>(nfft - 1)
+                    / (2.0 * keel::as<double>(nfft));
 
     double winSum = 0.0;
     for (double w : win) winSum += w;
@@ -413,7 +413,7 @@ Value perFrameChannel(keel::Allocator *mr, const Value &X,
             const keel::usize base = (c * F + m) * M;
             for (keel::usize i = 0; i < M; ++i) col[i] = X.elemAsDouble(base + i);
             const double v = cb(col.data(), M);
-            if (of) of[m + c * F] = static_cast<float>(v);
+            if (of) of[m + c * F] = keel::as<float>(v);
             else od[m + c * F] = v;
         }
     }
@@ -702,11 +702,11 @@ Value spectralFluxFull(const Value &x, const Value &f, double p,
             }
             r0 = std::pow(s, invP);
         }
-        if (of) of[c * F] = static_cast<float>(r0);
+        if (of) of[c * F] = keel::as<float>(r0);
         else od[c * F] = r0;
         for (keel::usize fr = 1; fr < F; ++fr) {
             const double r = fluxPair((c * F + fr) * M, (c * F + fr - 1) * M);
-            if (of) of[c * F + fr] = static_cast<float>(r);
+            if (of) of[c * F + fr] = keel::as<float>(r);
             else od[c * F + fr] = r;
         }
     }
@@ -723,7 +723,7 @@ Value spectralFluxFull(const Value &x, const Value &f, double p,
             const keel::usize last = (c * F + F - 1) * M;
             for (keel::usize i = 0; i < M; ++i) {
                 const double v = readSpec(last + i);
-                if (ff) ff[c * M + i] = static_cast<float>(v);
+                if (ff) ff[c * M + i] = keel::as<float>(v);
                 else fd[c * M + i] = v;
             }
         }
