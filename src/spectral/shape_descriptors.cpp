@@ -97,7 +97,7 @@ static void requireFloatClass(const Value &v, const char *fn,
 // the real thresholds are >120 / >80 with min(64, xLen) and half-window
 // fallbacks.
 static Stft computeStft(keel::Allocator *mr, const Value &x,
-                        double fs, bool magnitude, const char *fn,
+                        keel::f64 fs, bool magnitude, const char *fn,
                         const StftOptions &opts)
 {
     const keel::usize xLen   = x.dims().rows();
@@ -106,12 +106,12 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
     const bool haveOvl = !opts.OverlapLength.isEmpty();
 
     // ── window ──
-    keel::Array<double> win;
+    keel::Array<keel::f64> win;
     keel::usize winLen;
     if (!haveWin) {
-        const double wNatural = std::round(fs * 0.03);
+        const keel::f64 wNatural = std::round(fs * 0.03);
         if (wNatural > 120.0) {
-            if (wNatural > keel::as<double>(xLen))
+            if (wNatural > keel::as<keel::f64>(xLen))
                 throw Error(keel::format("{}: the default window length round(0.03·f) = {} exceeds the signal length {}.",
                                          fn, keel::as<long long>(wNatural), xLen),
                             0, 0, fn, "",
@@ -124,9 +124,9 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
         } else {
             // "8 segments" geometry: window sized so that 8 hops of
             // (window − ovl) tile the signal exactly.
-            const double ov0 = opts.OverlapLength.elemAsDouble(0);
+            const keel::f64 ov0 = opts.OverlapLength.elemAsDouble(0);
             winLen = keel::as<keel::usize>(
-                std::floor((keel::as<double>(xLen) + 7.0 * ov0) / 8.0));
+                std::floor((keel::as<keel::f64>(xLen) + 7.0 * ov0) / 8.0));
             win.assign(winLen, 1.0);
         }
     } else {
@@ -163,7 +163,7 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
     // ── overlap ──
     keel::usize overlap;
     if (!haveOvl) {
-        const double oNat = std::round(fs * 0.02);
+        const keel::f64 oNat = std::round(fs * 0.02);
         overlap = (oNat > 80.0) ? keel::as<keel::usize>(oNat)
                                 : winLen / 2;      // fix(0.5·windowLength)
     } else {
@@ -177,7 +177,7 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
             throw Error(keel::format("{}: input OverlapLength must be a scalar.", fn),
                         0, 0, fn, "",
                         keel::format("numkit:{}:expectedScalar", fn));
-        const double v = O.elemAsDouble(0);
+        const keel::f64 v = O.elemAsDouble(0);
         if (!(v == std::floor(v)))
             throw Error(keel::format("{}: input OverlapLength must be an integer.", fn),
                         0, 0, fn, "",
@@ -186,7 +186,7 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
             throw Error(keel::format("{}: input OverlapLength must be nonnegative.", fn),
                         0, 0, fn, "",
                         keel::format("numkit:{}:expectedNonnegative", fn));
-        if (v >= keel::as<double>(winLen))
+        if (v >= keel::as<keel::f64>(winLen))
             throw Error(keel::format("{}: OverlapLength must be smaller than the window length {}.",
                                      fn, winLen),
                         0, 0, fn, "",
@@ -206,7 +206,7 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
             throw Error(keel::format("{}: input FFTLength must be a scalar.", fn),
                         0, 0, fn, "",
                         keel::format("numkit:{}:expectedScalar", fn));
-        const double v = Nv.elemAsDouble(0);
+        const keel::f64 v = Nv.elemAsDouble(0);
         if (!(v == std::floor(v)) || v <= 0.0)
             throw Error(keel::format("{}: input FFTLength must be a positive integer.", fn),
                         0, 0, fn, "",
@@ -224,7 +224,7 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
                     keel::format("numkit:{}:FFTLengthLessThanWindowLength", fn));
 
     // ── range ──
-    double rLo = 0.0, rHi;
+    keel::f64 rLo = 0.0, rHi;
     if (fs > 1.0) rHi = std::floor(fs / 2.0); else rHi = fs / 2.0;
     if (!opts.Range.isEmpty()) {
         const Value &R = opts.Range;
@@ -264,9 +264,9 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
 
     // Selected bins (1-based in the reference; 0-based here after −1).
     const keel::usize binLow  = keel::as<keel::usize>(
-        std::ceil(rLo * keel::as<double>(nfft) / fs + 1.0));
+        std::ceil(rLo * keel::as<keel::f64>(nfft) / fs + 1.0));
     const keel::usize binHigh = keel::as<keel::usize>(
-        std::floor(rHi * keel::as<double>(nfft) / fs + 1.0));
+        std::floor(rHi * keel::as<keel::f64>(nfft) / fs + 1.0));
     const keel::usize M = (binHigh >= binLow) ? (binHigh - binLow + 1) : 0;
 
     Stft s;
@@ -276,25 +276,25 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
     s.F = Value::matrix(M, 1, ValueType::DOUBLE, mr);
     if (numFrames == 0 || M == 0) return s;
 
-    double *fd = s.F.doubleDataMut();
+    keel::f64 *fd = s.F.doubleDataMut();
     for (keel::usize k = 0; k < M; ++k)
-        fd[k] = (fs / keel::as<double>(nfft))
-                * keel::as<double>(binLow - 1 + k);
+        fd[k] = (fs / keel::as<keel::f64>(nfft))
+                * keel::as<keel::f64>(binLow - 1 + k);
     if ((nfft % 2) != 0 && binHigh == nfft / 2 + 1 && M > 0)
-        fd[M - 1] = fs * keel::as<double>(nfft - 1)
-                    / (2.0 * keel::as<double>(nfft));
+        fd[M - 1] = fs * keel::as<keel::f64>(nfft - 1)
+                    / (2.0 * keel::as<keel::f64>(nfft));
 
-    double winSum = 0.0;
-    for (double w : win) winSum += w;
-    const double invPow = 1.0 / (0.5 * winSum * winSum);
-    const double magScl = 2.0 / winSum;
+    keel::f64 winSum = 0.0;
+    for (keel::f64 w : win) winSum += w;
+    const keel::f64 invPow = 1.0 / (0.5 * winSum * winSum);
+    const keel::f64 magScl = 2.0 / winSum;
     const bool halveDc = (binLow == 1);
     const bool halveNyq = (binHigh == nfft / 2 + 1) && (nfft % 2 == 0);
 
     keel::ArenaTemp scratch = keel::get_scratch(mr);
-    keel::Array<double> frame(winLen, scratch.allocator());
-    keel::Array<double> half(nfft / 2 + 1, scratch.allocator());
-    double *Xd = s.X.doubleDataMut();
+    keel::Array<keel::f64> frame(winLen, scratch.allocator());
+    keel::Array<keel::f64> half(nfft / 2 + 1, scratch.allocator());
+    keel::f64 *Xd = s.X.doubleDataMut();
     for (keel::usize c = 0; c < numChan; ++c) {
         for (keel::usize f = 0; f < numFrames; ++f) {
             const keel::usize start = f * hop;
@@ -302,9 +302,9 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
                 frame[i] = x.elemAsDouble(c * xLen + start + i) * win[i];
             detail::fftPowerHalfN(mr, frame.data(), winLen, nfft,
                                   half.data());
-            double *col = Xd + (c * numFrames + f) * M;
+            keel::f64 *col = Xd + (c * numFrames + f) * M;
             for (keel::usize k = 0; k < M; ++k) {
-                const double p = half[binLow - 1 + k];
+                const keel::f64 p = half[binLow - 1 + k];
                 col[k] = magnitude ? magScl * std::sqrt(p) : p * invPow;
             }
             if (halveDc) col[0] *= 0.5;
@@ -360,7 +360,7 @@ InputData prepareInput(keel::Allocator *mr,
                 throw Error(keel::format("{}: input 1 (x) must be finite.", fn),
                             0, 0, fn, "",
                             keel::format("numkit:{}:expectedFinite", fn));
-        const double fs = f.elemAsDouble(0);
+        const keel::f64 fs = f.elemAsDouble(0);
         Stft s = computeStft(mr, x, fs, magnitude, fn, opts);
         d.X = std::move(s.X);
         d.F = std::move(s.F);
@@ -404,16 +404,16 @@ Value perFrameChannel(keel::Allocator *mr, const Value &X,
                                            : ValueType::DOUBLE,
                               mr);
     if (M == 0) return out;
-    double *od = d.wantSingle ? nullptr : out.doubleDataMut();
-    float *of = d.wantSingle ? out.singleDataMut() : nullptr;
+    keel::f64 *od = d.wantSingle ? nullptr : out.doubleDataMut();
+    keel::f32 *of = d.wantSingle ? out.singleDataMut() : nullptr;
     keel::ArenaTemp scratch = keel::get_scratch(mr);
-    keel::Array<double> col(M, scratch.allocator());
+    keel::Array<keel::f64> col(M, scratch.allocator());
     for (keel::usize c = 0; c < C; ++c) {
         for (keel::usize m = 0; m < F; ++m) {
             const keel::usize base = (c * F + m) * M;
             for (keel::usize i = 0; i < M; ++i) col[i] = X.elemAsDouble(base + i);
-            const double v = cb(col.data(), M);
-            if (of) of[m + c * F] = keel::as<float>(v);
+            const keel::f64 v = cb(col.data(), M);
+            if (of) of[m + c * F] = keel::as<keel::f32>(v);
             else od[m + c * F] = v;
         }
     }
@@ -422,7 +422,7 @@ Value perFrameChannel(keel::Allocator *mr, const Value &X,
 
 } // anon
 
-Value spectralFlux(const Value &x, const Value &f, double p,
+Value spectralFlux(const Value &x, const Value &f, keel::f64 p,
                    keel::Allocator *mr)
 {
     return spectralFluxFull(x, f, p, nullptr, nullptr, false, {}, mr);
@@ -433,8 +433,8 @@ Value spectralCentroid(const Value &x, const Value &f,
                        const StftOptions &stft, keel::Allocator *mr)
 {
     auto d = prepareInput(mr, x, f, false, "spectralCentroid", stft);
-    const double *Fd = d.F.doubleData();
-    return perFrameChannel(mr, d.X, d, [Fd](const double *col, keel::usize M) {
+    const keel::f64 *Fd = d.F.doubleData();
+    return perFrameChannel(mr, d.X, d, [Fd](const keel::f64 *col, keel::usize M) {
         return keel::audio::spectral_centroid({col, M}, {Fd, M});
     });
 }
@@ -448,8 +448,8 @@ Value spectralSpread(const Value &x, const Value &f,
                      const StftOptions &stft, keel::Allocator *mr)
 {
     auto d = prepareInput(mr, x, f, false, "spectralSpread", stft);
-    const double *Fd = d.F.doubleData();
-    return perFrameChannel(mr, d.X, d, [Fd](const double *col, keel::usize M) {
+    const keel::f64 *Fd = d.F.doubleData();
+    return perFrameChannel(mr, d.X, d, [Fd](const keel::f64 *col, keel::usize M) {
         return keel::audio::spectral_spread({col, M}, {Fd, M});
     });
 }
@@ -459,17 +459,17 @@ Value spectralSpread(const Value &x, const Value &f, keel::Allocator *mr)
 }
 
 // ── Rolloff point ─────────────────────────────────────────────────────
-Value spectralRolloffPoint(const Value &x, const Value &f, double percentile,
+Value spectralRolloffPoint(const Value &x, const Value &f, keel::f64 percentile,
                            const StftOptions &stft,
                            keel::Allocator *mr)
 {
     auto d = prepareInput(mr, x, f, false, "spectralRolloffPoint", stft);
-    const double *Fd = d.F.doubleData();
-    return perFrameChannel(mr, d.X, d, [Fd, percentile](const double *col, keel::usize M) {
+    const keel::f64 *Fd = d.F.doubleData();
+    return perFrameChannel(mr, d.X, d, [Fd, percentile](const keel::f64 *col, keel::usize M) {
         return keel::audio::spectral_rolloff_point({col, M}, {Fd, M}, percentile);
     });
 }
-Value spectralRolloffPoint(const Value &x, const Value &f, double percentile,
+Value spectralRolloffPoint(const Value &x, const Value &f, keel::f64 percentile,
                            keel::Allocator *mr)
 {
     return spectralRolloffPoint(x, f, percentile, StftOptions{}, mr);
@@ -480,7 +480,7 @@ Value spectralDecrease(const Value &x, const Value &f,
                        const StftOptions &stft, keel::Allocator *mr)
 {
     auto d = prepareInput(mr, x, f, false, "spectralDecrease", stft);
-    return perFrameChannel(mr, d.X, d, [](const double *col, keel::usize M) {
+    return perFrameChannel(mr, d.X, d, [](const keel::f64 *col, keel::usize M) {
         return keel::audio::spectral_decrease({col, M});
     });
 }
@@ -494,8 +494,8 @@ Value spectralSlope(const Value &x, const Value &f,
                     const StftOptions &stft, keel::Allocator *mr)
 {
     auto d = prepareInput(mr, x, f, false, "spectralSlope", stft);
-    const double *Fd = d.F.doubleData();
-    return perFrameChannel(mr, d.X, d, [Fd](const double *col, keel::usize M) {
+    const keel::f64 *Fd = d.F.doubleData();
+    return perFrameChannel(mr, d.X, d, [Fd](const keel::f64 *col, keel::usize M) {
         return keel::audio::spectral_slope({col, M}, {Fd, M});
     });
 }
@@ -510,7 +510,7 @@ Value spectralCrest(const Value &x, const Value &f,
                     const StftOptions &stft, keel::Allocator *mr)
 {
     auto d = prepareInput(mr, x, f, false, "spectralCrest", stft);
-    return perFrameChannel(mr, d.X, d, [](const double *col, keel::usize M) {
+    return perFrameChannel(mr, d.X, d, [](const keel::f64 *col, keel::usize M) {
         return keel::audio::spectral_crest({col, M});
     });
 }
@@ -523,7 +523,7 @@ Value spectralEntropy(const Value &x, const Value &f,
                       const StftOptions &stft, keel::Allocator *mr)
 {
     auto d = prepareInput(mr, x, f, false, "spectralEntropy", stft);
-    return perFrameChannel(mr, d.X, d, [](const double *col, keel::usize M) {
+    return perFrameChannel(mr, d.X, d, [](const keel::f64 *col, keel::usize M) {
         return keel::audio::spectral_entropy({col, M});
     });
 }
@@ -536,7 +536,7 @@ Value spectralFlatness(const Value &x, const Value &f,
                        const StftOptions &stft, keel::Allocator *mr)
 {
     auto d = prepareInput(mr, x, f, false, "spectralFlatness", stft);
-    return perFrameChannel(mr, d.X, d, [](const double *col, keel::usize M) {
+    return perFrameChannel(mr, d.X, d, [](const keel::f64 *col, keel::usize M) {
         return keel::audio::spectral_flatness({col, M});
     });
 }
@@ -549,8 +549,8 @@ Value spectralKurtosis(const Value &x, const Value &f,
                        const StftOptions &stft, keel::Allocator *mr)
 {
     auto d = prepareInput(mr, x, f, false, "spectralKurtosis", stft);
-    const double *Fd = d.F.doubleData();
-    return perFrameChannel(mr, d.X, d, [Fd](const double *col, keel::usize M) {
+    const keel::f64 *Fd = d.F.doubleData();
+    return perFrameChannel(mr, d.X, d, [Fd](const keel::f64 *col, keel::usize M) {
         return keel::audio::spectral_kurtosis({col, M}, {Fd, M});
     });
 }
@@ -563,8 +563,8 @@ Value spectralSkewness(const Value &x, const Value &f,
                        const StftOptions &stft, keel::Allocator *mr)
 {
     auto d = prepareInput(mr, x, f, false, "spectralSkewness", stft);
-    const double *Fd = d.F.doubleData();
-    return perFrameChannel(mr, d.X, d, [Fd](const double *col, keel::usize M) {
+    const keel::f64 *Fd = d.F.doubleData();
+    return perFrameChannel(mr, d.X, d, [Fd](const keel::f64 *col, keel::usize M) {
         return keel::audio::spectral_skewness({col, M}, {Fd, M});
     });
 }
@@ -585,7 +585,7 @@ Value spectralSkewness(const Value &x, const Value &f, keel::Allocator *mr)
 // keeps X's class.
 namespace {
 
-void spectralFlux_argcheck(const Value &x, const Value &f, double p,
+void spectralFlux_argcheck(const Value &x, const Value &f, keel::f64 p,
                            const Value *initialCondition, Value *finalCondition)
 {
     (void)x;
@@ -601,7 +601,7 @@ void spectralFlux_argcheck(const Value &x, const Value &f, double p,
                     0, 0, "spectralFlux", "",
                     "numkit:spectralFlux:mustBeReal");
     for (keel::usize i = 0; i < f.numel(); ++i) {
-        const double fv = f.elemAsDouble(i);
+        const keel::f64 fv = f.elemAsDouble(i);
         if (!(fv >= 0.0))
             throw Error("spectralFlux: input 2 (f) must be nonnegative.",
                         0, 0, "spectralFlux", "",
@@ -633,7 +633,7 @@ void spectralFlux_argcheck(const Value &x, const Value &f, double p,
 
 } // anon
 
-Value spectralFluxFull(const Value &x, const Value &f, double p,
+Value spectralFluxFull(const Value &x, const Value &f, keel::f64 p,
                        const Value *initialCondition, Value *finalCondition,
                        bool magnitudeSpectrum, const StftOptions &stft,
                        keel::Allocator *mr)
@@ -671,13 +671,13 @@ Value spectralFluxFull(const Value &x, const Value &f, double p,
                     "numkit:spectralFlux:BadInitialConditions");
 
     const bool cx = d.X.type() == ValueType::COMPLEX;
-    double *od = wantSingle ? nullptr : out.doubleDataMut();
-    float *of = wantSingle ? out.singleDataMut() : nullptr;
-    const double invP = 1.0 / p;
-    auto fluxPair = [&](keel::usize curBase, keel::usize prvBase) -> double {
-        double s = 0.0;
+    keel::f64 *od = wantSingle ? nullptr : out.doubleDataMut();
+    keel::f32 *of = wantSingle ? out.singleDataMut() : nullptr;
+    const keel::f64 invP = 1.0 / p;
+    auto fluxPair = [&](keel::usize curBase, keel::usize prvBase) -> keel::f64 {
+        keel::f64 s = 0.0;
         for (keel::usize i = 0; i < M; ++i) {
-            const double diff = cx
+            const keel::f64 diff = cx
                 ? keel::abs(d.X.complexElem(curBase + i)
                            - d.X.complexElem(prvBase + i))
                 : keel::abs(d.X.elemAsDouble(curBase + i)
@@ -692,21 +692,21 @@ Value spectralFluxFull(const Value &x, const Value &f, double p,
     };
     for (keel::usize c = 0; c < C; ++c) {
         const keel::usize first = (c * F + 0) * M;
-        double r0 = 0.0;
+        keel::f64 r0 = 0.0;
         if (!timeForm && haveIc) {
-            double s = 0.0;
+            keel::f64 s = 0.0;
             for (keel::usize i = 0; i < M; ++i) {
-                const double cur = readSpec(first + i);
-                const double prv = initialCondition->elemAsDouble(c * M + i);
+                const keel::f64 cur = readSpec(first + i);
+                const keel::f64 prv = initialCondition->elemAsDouble(c * M + i);
                 s += std::pow(keel::abs(cur - prv), p);
             }
             r0 = std::pow(s, invP);
         }
-        if (of) of[c * F] = keel::as<float>(r0);
+        if (of) of[c * F] = keel::as<keel::f32>(r0);
         else od[c * F] = r0;
         for (keel::usize fr = 1; fr < F; ++fr) {
-            const double r = fluxPair((c * F + fr) * M, (c * F + fr - 1) * M);
-            if (of) of[c * F + fr] = keel::as<float>(r);
+            const keel::f64 r = fluxPair((c * F + fr) * M, (c * F + fr - 1) * M);
+            if (of) of[c * F + fr] = keel::as<keel::f32>(r);
             else od[c * F + fr] = r;
         }
     }
@@ -717,13 +717,13 @@ Value spectralFluxFull(const Value &x, const Value &f, double p,
         Value fcx = Value::matrix(M, C,
                                   wantSingle ? ValueType::SINGLE
                                              : ValueType::DOUBLE, mr);
-        double *fd = wantSingle ? nullptr : fcx.doubleDataMut();
-        float *ff = wantSingle ? fcx.singleDataMut() : nullptr;
+        keel::f64 *fd = wantSingle ? nullptr : fcx.doubleDataMut();
+        keel::f32 *ff = wantSingle ? fcx.singleDataMut() : nullptr;
         for (keel::usize c = 0; c < C; ++c) {
             const keel::usize last = (c * F + F - 1) * M;
             for (keel::usize i = 0; i < M; ++i) {
-                const double v = readSpec(last + i);
-                if (ff) ff[c * M + i] = keel::as<float>(v);
+                const keel::f64 v = readSpec(last + i);
+                if (ff) ff[c * M + i] = keel::as<keel::f32>(v);
                 else fd[c * M + i] = v;
             }
         }

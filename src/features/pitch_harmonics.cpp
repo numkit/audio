@@ -17,7 +17,7 @@ namespace numkit::audio {
 
 namespace {
 
-void pitch_argcheck(const Value &x, double fs, double minF, double maxF)
+void pitch_argcheck(const Value &x, keel::f64 fs, keel::f64 minF, keel::f64 maxF)
 {
     (void)x;
     if (!(fs > 0.0) || !std::isfinite(fs))
@@ -28,7 +28,7 @@ void pitch_argcheck(const Value &x, double fs, double minF, double maxF)
                     0, 0, "pitch", "", "numkit:pitch:BadRange");
 }
 
-void harmonicRatio_argcheck(const Value &x, double fs)
+void harmonicRatio_argcheck(const Value &x, keel::f64 fs)
 {
     (void)x;
     if (!(fs > 0.0) || !std::isfinite(fs))
@@ -36,7 +36,7 @@ void harmonicRatio_argcheck(const Value &x, double fs)
                     0, 0, "harmonicRatio", "", "numkit:harmonicRatio:expectedPositive");
 }
 
-Value runPitch(const Value &x, double fs, double minF, double maxF,
+Value runPitch(const Value &x, keel::f64 fs, keel::f64 minF, keel::f64 maxF,
                keel::audio::PitchMethod method, keel::Allocator *mr)
 {
     pitch_argcheck(x, fs, minF, maxF);
@@ -46,10 +46,10 @@ Value runPitch(const Value &x, double fs, double minF, double maxF,
         return Value::matrix(0, 0, ValueType::DOUBLE, mr);
 
     keel::ArenaTemp scratch = keel::get_scratch(mr);
-    keel::Array<double> xBuf(scratch.allocator());
-    keel::ArrayRef<double> xRef;
+    keel::Array<keel::f64> xBuf(scratch.allocator());
+    keel::ArrayRef<keel::f64> xRef;
     if (x.type() == ValueType::DOUBLE) {
-        xRef = keel::ArrayRef<double>(x.doubleData(), N);
+        xRef = keel::ArrayRef<keel::f64>(x.doubleData(), N);
     } else {
         xBuf.resize(N);
         for (keel::usize i = 0; i < N; ++i) xBuf[i] = x.elemAsDouble(i);
@@ -58,7 +58,7 @@ Value runPitch(const Value &x, double fs, double minF, double maxF,
 
     Value out = Value::matrix(numFrames, 1, ValueType::DOUBLE, mr);
     const auto st = keel::audio::pitch(
-        xRef, fs, keel::MutArrayRef<double>(out.doubleDataMut(), numFrames),
+        xRef, fs, keel::MutArrayRef<keel::f64>(out.doubleDataMut(), numFrames),
         minF, maxF, method, mr);
     if (st != keel::audio::AudioStatus::kOk)
         return Value::matrix(0, 0, ValueType::DOUBLE, mr);
@@ -67,32 +67,32 @@ Value runPitch(const Value &x, double fs, double minF, double maxF,
 
 } // anon
 
-Value pitchCEP(const Value &x, double fs, double minF, double maxF, keel::Allocator *mr)
+Value pitchCEP(const Value &x, keel::f64 fs, keel::f64 minF, keel::f64 maxF, keel::Allocator *mr)
 {
     return runPitch(x, fs, minF, maxF, keel::audio::PitchMethod::kCep, mr);
 }
 
-Value pitchPEF(const Value &x, double fs, double minF, double maxF, keel::Allocator *mr)
+Value pitchPEF(const Value &x, keel::f64 fs, keel::f64 minF, keel::f64 maxF, keel::Allocator *mr)
 {
     return runPitch(x, fs, minF, maxF, keel::audio::PitchMethod::kPef, mr);
 }
 
-Value pitchLHS(const Value &x, double fs, double minF, double maxF, keel::Allocator *mr)
+Value pitchLHS(const Value &x, keel::f64 fs, keel::f64 minF, keel::f64 maxF, keel::Allocator *mr)
 {
     return runPitch(x, fs, minF, maxF, keel::audio::PitchMethod::kLhs, mr);
 }
 
-Value pitchSRH(const Value &x, double fs, double minF, double maxF, keel::Allocator *mr)
+Value pitchSRH(const Value &x, keel::f64 fs, keel::f64 minF, keel::f64 maxF, keel::Allocator *mr)
 {
     return runPitch(x, fs, minF, maxF, keel::audio::PitchMethod::kSrh, mr);
 }
 
-Value pitch(const Value &x, double fs, double minF, double maxF, keel::Allocator *mr)
+Value pitch(const Value &x, keel::f64 fs, keel::f64 minF, keel::f64 maxF, keel::Allocator *mr)
 {
     return runPitch(x, fs, minF, maxF, keel::audio::PitchMethod::kNcf, mr);
 }
 
-Value harmonicRatio(const Value &x, double fs, keel::Allocator *mr)
+Value harmonicRatio(const Value &x, keel::f64 fs, keel::Allocator *mr)
 {
     harmonicRatio_argcheck(x, fs);
     const keel::usize N = x.numel();
@@ -101,10 +101,10 @@ Value harmonicRatio(const Value &x, double fs, keel::Allocator *mr)
         return Value::matrix(0, 0, ValueType::DOUBLE, mr);
 
     keel::ArenaTemp scratch = keel::get_scratch(mr);
-    keel::Array<double> xBuf(scratch.allocator());
-    keel::ArrayRef<double> xRef;
+    keel::Array<keel::f64> xBuf(scratch.allocator());
+    keel::ArrayRef<keel::f64> xRef;
     if (x.type() == ValueType::DOUBLE) {
-        xRef = keel::ArrayRef<double>(x.doubleData(), N);
+        xRef = keel::ArrayRef<keel::f64>(x.doubleData(), N);
     } else {
         xBuf.resize(N);
         for (keel::usize i = 0; i < N; ++i) xBuf[i] = x.elemAsDouble(i);
@@ -113,7 +113,7 @@ Value harmonicRatio(const Value &x, double fs, keel::Allocator *mr)
 
     Value out = Value::matrix(numFrames, 1, ValueType::DOUBLE, mr);
     (void)keel::audio::harmonic_ratio(
-        xRef, fs, keel::MutArrayRef<double>(out.doubleDataMut(), numFrames), mr);
+        xRef, fs, keel::MutArrayRef<keel::f64>(out.doubleDataMut(), numFrames), mr);
     return out;
 }
 

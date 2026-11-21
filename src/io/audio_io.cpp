@@ -131,7 +131,7 @@ AudioData bufferToAudioData(const keel::audiofile::AudioBuffer &buf, bool native
 
     if (!nativeType) {
         res.y = Value::matrix(frames, channels, ValueType::DOUBLE, mr);
-        std::memcpy(res.y.doubleDataMut(), buf.data.data(), frames * channels * sizeof(double));
+        std::memcpy(res.y.doubleDataMut(), buf.data.data(), frames * channels * sizeof(keel::f64));
         return res;
     }
 
@@ -157,11 +157,11 @@ AudioData bufferToAudioData(const keel::audiofile::AudioBuffer &buf, bool native
             break;
         case keel::audiofile::AudioSampleType::F32:
             res.y = Value::matrix(frames, channels, ValueType::SINGLE, mr);
-            std::memcpy(res.y.singleDataMut(), buf.data.data(), frames * channels * sizeof(float));
+            std::memcpy(res.y.singleDataMut(), buf.data.data(), frames * channels * sizeof(keel::f32));
             break;
         case keel::audiofile::AudioSampleType::F64:
             res.y = Value::matrix(frames, channels, ValueType::DOUBLE, mr);
-            std::memcpy(res.y.doubleDataMut(), buf.data.data(), frames * channels * sizeof(double));
+            std::memcpy(res.y.doubleDataMut(), buf.data.data(), frames * channels * sizeof(keel::f64));
             break;
     }
     return res;
@@ -184,11 +184,11 @@ AudioInfo keelInfoToAudioInfo(const keel::audiofile::AudioInfo &ki) {
 }
 
 struct PreparedAudioInput {
-    keel::Array<double> promoted;
+    keel::Array<keel::f64> promoted;
     keel::audiofile::AudioView view;
 };
 
-PreparedAudioInput prepareEncodeInput(const Value &y, double sampleRate, bool preserveSingle) {
+PreparedAudioInput prepareEncodeInput(const Value &y, keel::f64 sampleRate, bool preserveSingle) {
     const auto &d = y.dims();
     const keel::usize numFrames = d.rows();
     const keel::usize numChannels = (d.ndim() >= 2) ? d.cols() : 1;
@@ -295,7 +295,7 @@ AudioInfo peekWav(const keel::u8 *data, keel::usize len) {
     return keelInfoToAudioInfo(res.value());
 }
 
-keel::Array<keel::u8> writeWavToBytes(const Value &y, double sampleRate,
+keel::Array<keel::u8> writeWavToBytes(const Value &y, keel::f64 sampleRate,
                                       keel::u16 bitsPerSample,
                                       keel::StringRef title,
                                       keel::StringRef artist,
@@ -380,7 +380,7 @@ AudioInfo peekAiff(const keel::u8 *data, keel::usize len) {
     return keelInfoToAudioInfo(res.value());
 }
 
-keel::Array<keel::u8> writeAiffToBytes(const Value &y, double sampleRate,
+keel::Array<keel::u8> writeAiffToBytes(const Value &y, keel::f64 sampleRate,
                                        keel::u16 bitsPerSample,
                                        keel::StringRef title,
                                        keel::StringRef artist,
@@ -424,7 +424,7 @@ AudioInfo peekAu(const keel::u8 *data, keel::usize len) {
     return keelInfoToAudioInfo(res.value());
 }
 
-keel::Array<keel::u8> writeAuToBytes(const Value &y, double sampleRate,
+keel::Array<keel::u8> writeAuToBytes(const Value &y, keel::f64 sampleRate,
                                      keel::u16 bitsPerSample,
                                      keel::StringRef comment) {
     if (bitsPerSample != 8 && bitsPerSample != 16 && bitsPerSample != 24 && bitsPerSample != 32) {
@@ -476,13 +476,13 @@ Value readMidi(const keel::u8 *data, keel::usize len,
     const auto &notes = res.value();
     const keel::usize numNotes = notes.size();
     Value out = Value::matrix(numNotes, 6, ValueType::DOUBLE, mr);
-    double *dst = out.doubleDataMut();
+    keel::f64 *dst = out.doubleDataMut();
     for (keel::usize i = 0; i < numNotes; ++i) {
         const auto &n = notes[i];
-        dst[0 * numNotes + i] = keel::as<double>(n.track + 1u);
-        dst[1 * numNotes + i] = keel::as<double>(n.channel + 1u);
-        dst[2 * numNotes + i] = keel::as<double>(n.note_number);
-        dst[3 * numNotes + i] = keel::as<double>(n.velocity);
+        dst[0 * numNotes + i] = keel::as<keel::f64>(n.track + 1u);
+        dst[1 * numNotes + i] = keel::as<keel::f64>(n.channel + 1u);
+        dst[2 * numNotes + i] = keel::as<keel::f64>(n.note_number);
+        dst[3 * numNotes + i] = keel::as<keel::f64>(n.velocity);
         dst[4 * numNotes + i] = n.start_time_sec;
         dst[5 * numNotes + i] = n.end_time_sec;
     }
@@ -491,7 +491,7 @@ Value readMidi(const keel::u8 *data, keel::usize len,
 
 keel::Array<keel::u8> writeMidiToBytes(const Value &notesMatrix,
                                        keel::u16 ticksPerQuarterNote,
-                                       double tempoBpm) {
+                                       keel::f64 tempoBpm) {
     const auto &d = notesMatrix.dims();
     const keel::usize numNotes = d.rows();
     if (ticksPerQuarterNote == 0 || (ticksPerQuarterNote & 0x8000u) != 0u) {
@@ -519,8 +519,8 @@ keel::Array<keel::u8> writeMidiToBytes(const Value &notesMatrix,
         if (d.cols() >= 4) {
             vel = std::clamp(keel::as<int>(notesMatrix.elemAsDouble(3 * numNotes + i)), 0, 127);
         }
-        const double startSec = (d.cols() >= 5) ? std::max(0.0, notesMatrix.elemAsDouble(4 * numNotes + i)) : 0.0;
-        const double endSec = (d.cols() >= 6)
+        const keel::f64 startSec = (d.cols() >= 5) ? std::max(0.0, notesMatrix.elemAsDouble(4 * numNotes + i)) : 0.0;
+        const keel::f64 endSec = (d.cols() >= 6)
             ? std::max(startSec, notesMatrix.elemAsDouble(5 * numNotes + i))
             : (startSec + 0.5);
 
@@ -600,7 +600,7 @@ AudioInfo audioinfoFromBytes(keel::StringRef bytes) {
     return audioinfoFromBytes(reinterpret_cast<const keel::u8 *>(bytes.data()), bytes.size());
 }
 
-keel::Array<keel::u8> audiowriteToBytes(const Value &y, double sampleRate,
+keel::Array<keel::u8> audiowriteToBytes(const Value &y, keel::f64 sampleRate,
                                         keel::StringRef format,
                                         keel::u16 bitsPerSample,
                                         keel::StringRef title,
@@ -637,7 +637,7 @@ AudioInfo audioinfo(keel::StringRef path) {
     return info;
 }
 
-void audiowrite(keel::StringRef path, const Value &y, double sampleRate,
+void audiowrite(keel::StringRef path, const Value &y, keel::f64 sampleRate,
                 keel::u16 bitsPerSample,
                 keel::StringRef title,
                 keel::StringRef artist,

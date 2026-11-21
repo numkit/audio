@@ -38,7 +38,7 @@ void pitch_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/,
 {
     argcheck::checkNargin(args.size(), 2, "pitch");
     keel::String method = keel::String::from("NCF");
-    double minF = 50.0, maxF = 400.0;
+    keel::f64 minF = 50.0, maxF = 400.0;
     // Parse Name-Value pairs starting at args[2].
     for (keel::usize i = 2; i + 1 < args.size(); i += 2) {
         if (args[i].type() != ValueType::CHAR && args[i].type() != ValueType::STRING)
@@ -60,7 +60,7 @@ void pitch_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/,
             maxF = r.elemAsDouble(1);
         }
     }
-    const double fs = args[1].toScalar();
+    const keel::f64 fs = args[1].toScalar();
     if (method == "CEP")
         outs[0] = pitchCEP(args[0], fs, minF, maxF, ctx.engine->allocator());
     else if (method == "PEF")

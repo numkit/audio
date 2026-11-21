@@ -56,7 +56,7 @@ void cepstralCoefficients_argcheck(const Value &S, int numCoeffs, CepstralRect r
     }
 }
 
-void mfcc_argcheck(const Value &x, double fs, int numCoeffs)
+void mfcc_argcheck(const Value &x, keel::f64 fs, int numCoeffs)
 {
     (void)x;
     if (!(fs > 0.0) || !std::isfinite(fs))
@@ -68,7 +68,7 @@ void mfcc_argcheck(const Value &x, double fs, int numCoeffs)
                     0, 0, "mfcc", "", "numkit:mfcc:BadN");
 }
 
-void gtcc_argcheck(const Value &x, double fs, int numCoeffs)
+void gtcc_argcheck(const Value &x, keel::f64 fs, int numCoeffs)
 {
     (void)x;
     if (!(fs > 0.0) || !std::isfinite(fs))
@@ -113,23 +113,23 @@ Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
     const auto kRect = toKeelRect(rect);
 
     if (wantSingle) {
-        const float *sd = S.singleData();
-        float *od_f = out.singleDataMut();
+        const keel::f32 *sd = S.singleData();
+        keel::f32 *od_f = out.singleDataMut();
         for (keel::usize pg = 0; pg < numPages; ++pg) {
             (void)keel::audio::cepstral_coefficients_f32(
-                keel::ArrayRef<float>(sd + pg * pageIn, pageIn),
+                keel::ArrayRef<keel::f32>(sd + pg * pageIn, pageIn),
                 L, pageFrames, K,
-                keel::MutArrayRef<float>(od_f + pg * pageOut, pageOut),
+                keel::MutArrayRef<keel::f32>(od_f + pg * pageOut, pageOut),
                 kRect, mr);
         }
     } else {
-        const double *sd = S.doubleData();
-        double *od_d = out.doubleDataMut();
+        const keel::f64 *sd = S.doubleData();
+        keel::f64 *od_d = out.doubleDataMut();
         for (keel::usize pg = 0; pg < numPages; ++pg) {
             (void)keel::audio::cepstral_coefficients(
-                keel::ArrayRef<double>(sd + pg * pageIn, pageIn),
+                keel::ArrayRef<keel::f64>(sd + pg * pageIn, pageIn),
                 L, pageFrames, K,
-                keel::MutArrayRef<double>(od_d + pg * pageOut, pageOut),
+                keel::MutArrayRef<keel::f64>(od_d + pg * pageOut, pageOut),
                 kRect, mr);
         }
     }
@@ -137,7 +137,7 @@ Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
 }
 
 std::tuple<Value, Value, Value>
-mfcc(const Value &x, double fs, int numCoeffs, keel::Allocator *mr)
+mfcc(const Value &x, keel::f64 fs, int numCoeffs, keel::Allocator *mr)
 {
     mfcc_argcheck(x, fs, numCoeffs);
     const keel::usize N = x.numel();
@@ -154,10 +154,10 @@ mfcc(const Value &x, double fs, int numCoeffs, keel::Allocator *mr)
     Value deltaDelta = Value::matrix(numFrames, NC + 1, ValueType::DOUBLE, mr);
 
     keel::ArenaTemp scratch = keel::get_scratch(mr);
-    keel::Array<double> xBuf(scratch.allocator());
-    keel::ArrayRef<double> xRef;
+    keel::Array<keel::f64> xBuf(scratch.allocator());
+    keel::ArrayRef<keel::f64> xRef;
     if (x.type() == ValueType::DOUBLE) {
-        xRef = keel::ArrayRef<double>(x.doubleData(), N);
+        xRef = keel::ArrayRef<keel::f64>(x.doubleData(), N);
     } else {
         xBuf.resize(N);
         for (keel::usize i = 0; i < N; ++i) xBuf[i] = x.elemAsDouble(i);
@@ -167,21 +167,21 @@ mfcc(const Value &x, double fs, int numCoeffs, keel::Allocator *mr)
     const keel::usize total = numFrames * (NC + 1);
     (void)keel::audio::mfcc(
         xRef, fs, NC,
-        keel::MutArrayRef<double>(out.doubleDataMut(), total),
-        keel::MutArrayRef<double>(delta.doubleDataMut(), total),
-        keel::MutArrayRef<double>(deltaDelta.doubleDataMut(), total),
+        keel::MutArrayRef<keel::f64>(out.doubleDataMut(), total),
+        keel::MutArrayRef<keel::f64>(delta.doubleDataMut(), total),
+        keel::MutArrayRef<keel::f64>(deltaDelta.doubleDataMut(), total),
         mr);
     return {out, delta, deltaDelta};
 }
 
 std::tuple<Value, Value, Value>
-gtcc(const Value &x, double fs, int numCoeffs, keel::Allocator *mr)
+gtcc(const Value &x, keel::f64 fs, int numCoeffs, keel::Allocator *mr)
 {
     gtcc_argcheck(x, fs, numCoeffs);
     const keel::usize N = x.numel();
     const keel::usize numFrames = keel::audio::audio_frame_count(N, fs, 0.03, 0.02);
     const keel::usize NC = keel::as<keel::usize>(numCoeffs);
-    const double diffErb = std::ceil(keel::audio::hz_to_erb(fs * 0.5) - keel::audio::hz_to_erb(50.0));
+    const keel::f64 diffErb = std::ceil(keel::audio::hz_to_erb(fs * 0.5) - keel::audio::hz_to_erb(50.0));
     const keel::usize numBands = (diffErb > 0.0) ? keel::as<keel::usize>(diffErb) : 0;
 
     Value out = Value::matrix(numFrames, numFrames == 0 ? 0 : (NC + 1),
@@ -194,10 +194,10 @@ gtcc(const Value &x, double fs, int numCoeffs, keel::Allocator *mr)
     Value deltaDelta = Value::matrix(numFrames, NC + 1, ValueType::DOUBLE, mr);
 
     keel::ArenaTemp scratch = keel::get_scratch(mr);
-    keel::Array<double> xBuf(scratch.allocator());
-    keel::ArrayRef<double> xRef;
+    keel::Array<keel::f64> xBuf(scratch.allocator());
+    keel::ArrayRef<keel::f64> xRef;
     if (x.type() == ValueType::DOUBLE) {
-        xRef = keel::ArrayRef<double>(x.doubleData(), N);
+        xRef = keel::ArrayRef<keel::f64>(x.doubleData(), N);
     } else {
         xBuf.resize(N);
         for (keel::usize i = 0; i < N; ++i) xBuf[i] = x.elemAsDouble(i);
@@ -207,9 +207,9 @@ gtcc(const Value &x, double fs, int numCoeffs, keel::Allocator *mr)
     const keel::usize total = numFrames * (NC + 1);
     (void)keel::audio::gtcc(
         xRef, fs, NC,
-        keel::MutArrayRef<double>(out.doubleDataMut(), total),
-        keel::MutArrayRef<double>(delta.doubleDataMut(), total),
-        keel::MutArrayRef<double>(deltaDelta.doubleDataMut(), total),
+        keel::MutArrayRef<keel::f64>(out.doubleDataMut(), total),
+        keel::MutArrayRef<keel::f64>(delta.doubleDataMut(), total),
+        keel::MutArrayRef<keel::f64>(deltaDelta.doubleDataMut(), total),
         mr);
     return {out, delta, deltaDelta};
 }

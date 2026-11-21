@@ -30,14 +30,14 @@ Value applyBatch(keel::Allocator *mr, const Value &x, BatchFn fn)
                             ValueType::DOUBLE, mr);
     if (N == 0) return out;
 
-    keel::MutArrayRef<double> outRef(out.doubleDataMut(), N);
+    keel::MutArrayRef<keel::f64> outRef(out.doubleDataMut(), N);
     if (x.type() == ValueType::DOUBLE) {
-        fn(keel::ArrayRef<double>(x.doubleData(), N), outRef);
+        fn(keel::ArrayRef<keel::f64>(x.doubleData(), N), outRef);
     } else {
         keel::ArenaTemp scratch = keel::get_scratch(mr);
-        keel::Array<double> in(N, scratch.allocator());
+        keel::Array<keel::f64> in(N, scratch.allocator());
         for (keel::usize i = 0; i < N; ++i) in[i] = x.elemAsDouble(i);
-        fn(keel::ArrayRef<double>(in.data(), N), outRef);
+        fn(keel::ArrayRef<keel::f64>(in.data(), N), outRef);
     }
     return out;
 }
@@ -53,7 +53,7 @@ void freq_scales_argcheck(const Value &x, const char *fn)
 Value hz2mel(const Value &hz, keel::Allocator *mr)
 {
     freq_scales_argcheck(hz, "hz2mel");
-    return applyBatch(mr, hz, [](keel::ArrayRef<double> in, keel::MutArrayRef<double> out) {
+    return applyBatch(mr, hz, [](keel::ArrayRef<keel::f64> in, keel::MutArrayRef<keel::f64> out) {
         (void)keel::audio::hz_to_mel(in, out);
     });
 }
@@ -61,7 +61,7 @@ Value hz2mel(const Value &hz, keel::Allocator *mr)
 Value mel2hz(const Value &mel, keel::Allocator *mr)
 {
     freq_scales_argcheck(mel, "mel2hz");
-    return applyBatch(mr, mel, [](keel::ArrayRef<double> in, keel::MutArrayRef<double> out) {
+    return applyBatch(mr, mel, [](keel::ArrayRef<keel::f64> in, keel::MutArrayRef<keel::f64> out) {
         (void)keel::audio::mel_to_hz(in, out);
     });
 }
@@ -69,7 +69,7 @@ Value mel2hz(const Value &mel, keel::Allocator *mr)
 Value hz2bark(const Value &hz, keel::Allocator *mr)
 {
     freq_scales_argcheck(hz, "hz2bark");
-    return applyBatch(mr, hz, [](keel::ArrayRef<double> in, keel::MutArrayRef<double> out) {
+    return applyBatch(mr, hz, [](keel::ArrayRef<keel::f64> in, keel::MutArrayRef<keel::f64> out) {
         (void)keel::audio::hz_to_bark(in, out);
     });
 }
@@ -77,7 +77,7 @@ Value hz2bark(const Value &hz, keel::Allocator *mr)
 Value bark2hz(const Value &bark, keel::Allocator *mr)
 {
     freq_scales_argcheck(bark, "bark2hz");
-    return applyBatch(mr, bark, [](keel::ArrayRef<double> in, keel::MutArrayRef<double> out) {
+    return applyBatch(mr, bark, [](keel::ArrayRef<keel::f64> in, keel::MutArrayRef<keel::f64> out) {
         (void)keel::audio::bark_to_hz(in, out);
     });
 }
@@ -85,7 +85,7 @@ Value bark2hz(const Value &bark, keel::Allocator *mr)
 Value hz2erb(const Value &hz, keel::Allocator *mr)
 {
     freq_scales_argcheck(hz, "hz2erb");
-    return applyBatch(mr, hz, [](keel::ArrayRef<double> in, keel::MutArrayRef<double> out) {
+    return applyBatch(mr, hz, [](keel::ArrayRef<keel::f64> in, keel::MutArrayRef<keel::f64> out) {
         (void)keel::audio::hz_to_erb(in, out);
     });
 }
@@ -93,7 +93,7 @@ Value hz2erb(const Value &hz, keel::Allocator *mr)
 Value erb2hz(const Value &erb, keel::Allocator *mr)
 {
     freq_scales_argcheck(erb, "erb2hz");
-    return applyBatch(mr, erb, [](keel::ArrayRef<double> in, keel::MutArrayRef<double> out) {
+    return applyBatch(mr, erb, [](keel::ArrayRef<keel::f64> in, keel::MutArrayRef<keel::f64> out) {
         (void)keel::audio::erb_to_hz(in, out);
     });
 }
@@ -101,7 +101,7 @@ Value erb2hz(const Value &erb, keel::Allocator *mr)
 Value phon2sone(const Value &phon, bool standardIs532_2, keel::Allocator *mr)
 {
     freq_scales_argcheck(phon, "phon2sone");
-    return applyBatch(mr, phon, [standardIs532_2, mr](keel::ArrayRef<double> in, keel::MutArrayRef<double> out) {
+    return applyBatch(mr, phon, [standardIs532_2, mr](keel::ArrayRef<keel::f64> in, keel::MutArrayRef<keel::f64> out) {
         (void)keel::audio::phon_to_sone(in, out, standardIs532_2, mr);
     });
 }
@@ -109,7 +109,7 @@ Value phon2sone(const Value &phon, bool standardIs532_2, keel::Allocator *mr)
 Value sone2phon(const Value &sone, bool standardIs532_2, keel::Allocator *mr)
 {
     freq_scales_argcheck(sone, "sone2phon");
-    return applyBatch(mr, sone, [standardIs532_2, mr](keel::ArrayRef<double> in, keel::MutArrayRef<double> out) {
+    return applyBatch(mr, sone, [standardIs532_2, mr](keel::ArrayRef<keel::f64> in, keel::MutArrayRef<keel::f64> out) {
         (void)keel::audio::sone_to_phon(in, out, standardIs532_2, mr);
     });
 }

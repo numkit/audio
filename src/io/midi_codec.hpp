@@ -20,17 +20,17 @@ struct MidiNote {
     keel::u8 channel = 0;
     keel::u8 noteNumber = 60; // Middle C
     keel::u8 velocity = 64;
-    double startTimeSec = 0.0;
-    double endTimeSec = 0.0;
-    double durationSec = 0.0;
+    keel::f64 startTimeSec = 0.0;
+    keel::f64 endTimeSec = 0.0;
+    keel::f64 durationSec = 0.0;
 };
 
 struct MidiInfo {
     keel::u16 format = 0;             // 0 or 1
     keel::u16 numTracks = 0;
     keel::u16 ticksPerQuarterNote = 480;
-    double initialTempoBpm = 120.0;
-    double duration = 0.0;           // in seconds
+    keel::f64 initialTempoBpm = 120.0;
+    keel::f64 duration = 0.0;           // in seconds
     keel::u64 totalNotes = 0;
     keel::String trackName;
 };
@@ -49,6 +49,6 @@ Value readMidi(const keel::u8 *data, keel::usize len,
 /// Encode note matrix [N x 6] to Standard MIDI File (SMF Format 0).
 keel::Array<keel::u8> writeMidiToBytes(const Value &notesMatrix,
                                        keel::u16 ticksPerQuarterNote = 480,
-                                       double tempoBpm = 120.0);
+                                       keel::f64 tempoBpm = 120.0);
 
 } // namespace numkit::audio

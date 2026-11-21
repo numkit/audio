@@ -30,7 +30,7 @@ AudioData readAu(const keel::u8 *data, keel::usize len,
 AudioInfo peekAu(const keel::u8 *data, keel::usize len);
 
 /// Encode audio matrix `y` (N x C) to in-memory AU byte stream.
-keel::Array<keel::u8> writeAuToBytes(const Value &y, double sampleRate,
+keel::Array<keel::u8> writeAuToBytes(const Value &y, keel::f64 sampleRate,
                                      keel::u16 bitsPerSample = 16,
                                      keel::StringRef comment = "");
 

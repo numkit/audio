@@ -27,7 +27,7 @@ namespace detail {
 static StftOptions parseSharedStftOptions(keel::ArrayRef<Value> args,
                                           keel::usize startIdx,
                                           const char *fn,
-                                          double *thresholdOut = nullptr)
+                                          keel::f64 *thresholdOut = nullptr)
 {
     StftOptions stft;
     for (keel::usize i = startIdx; i < args.size();) {
@@ -90,7 +90,7 @@ void spectralRolloffPoint_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*
                               keel::MutArrayRef<Value> outs, CallContext &ctx)
 {
     argcheck::checkNargin(args.size(), 2, "spectralRolloffPoint");
-    double pct = 0.95;
+    keel::f64 pct = 0.95;
     keel::usize nvStart = 2;
     if (args.size() >= 3 && !args[2].isChar() && !args[2].isString()) {
         pct = args[2].toScalar();
@@ -116,7 +116,7 @@ void spectralFlux_reg(keel::ArrayRef<Value> args, keel::usize nargout,
     const Value &f = args[1];
 
     const Value *ic = nullptr;
-    double p = 2.0;
+    keel::f64 p = 2.0;
     bool magnitude = false;
     StftOptions stft;
     for (keel::usize i = 2; i < args.size();) {

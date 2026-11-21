@@ -23,7 +23,7 @@ namespace numkit::audio {
 
 namespace {
 
-void melSpectrogram_argcheck(const Value &x, double fs, int numBands)
+void melSpectrogram_argcheck(const Value &x, keel::f64 fs, int numBands)
 {
     (void)x;
     if (!(fs > 0.0) || !std::isfinite(fs))
@@ -54,7 +54,7 @@ void audioDelta_argcheck(const Value &x, int windowLength)
 } // anon
 
 std::tuple<Value, Value, Value>
-melSpectrogram(const Value &x, double fs, int numBands,
+melSpectrogram(const Value &x, keel::f64 fs, int numBands,
                keel::Allocator *mr)
 {
     melSpectrogram_argcheck(x, fs, numBands);
@@ -74,36 +74,36 @@ melSpectrogram(const Value &x, double fs, int numBands,
     if (numFrames == 0 || winLen == 0 || M == 0) return {S, F, T};
 
     keel::ArenaTemp scratch = keel::get_scratch(mr);
-    keel::Array<double> win(winLen, scratch.allocator());
+    keel::Array<keel::f64> win(winLen, scratch.allocator());
     keel::audio::hamming_periodic(win);
 
     // WindowNormalization (power form): win /= sqrt(0.5 * sum(win)^2)
-    double sumW = 0.0;
+    keel::f64 sumW = 0.0;
     for (keel::usize i = 0; i < winLen; ++i) sumW += win[i];
-    const double scale = std::sqrt(0.5 * sumW * sumW);
+    const keel::f64 scale = std::sqrt(0.5 * sumW * sumW);
     if (scale > 0.0)
         for (keel::usize i = 0; i < winLen; ++i) win[i] /= scale;
 
     // Filterbank via keel::audio::mel_filterbank
-    keel::Array<double> fb(M * H, scratch.allocator());
+    keel::Array<keel::f64> fb(M * H, scratch.allocator());
     (void)keel::audio::mel_filterbank(fs, M, fftLen, fb, {F.doubleDataMut(), M});
 
     // Time vector.
-    double *td = T.doubleDataMut();
+    keel::f64 *td = T.doubleDataMut();
     for (keel::usize f = 0; f < numFrames; ++f)
-        td[f] = (keel::as<double>(f * hop) + keel::as<double>(winLen) / 2.0) / fs;
+        td[f] = (keel::as<keel::f64>(f * hop) + keel::as<keel::f64>(winLen) / 2.0) / fs;
 
     // Per-frame: window, FFT, power, mel-filterbank.
-    keel::Array<double> frame(winLen, scratch.allocator());
-    keel::Array<double> pow_half(H, scratch.allocator());
-    double *Sd = S.doubleDataMut();
+    keel::Array<keel::f64> frame(winLen, scratch.allocator());
+    keel::Array<keel::f64> pow_half(H, scratch.allocator());
+    keel::f64 *Sd = S.doubleDataMut();
     for (keel::usize f = 0; f < numFrames; ++f) {
         const keel::usize start = f * hop;
         for (keel::usize i = 0; i < winLen; ++i)
             frame[i] = x.elemAsDouble(start + i) * win[i];
         detail::fftPowerHalf(mr, frame.data(), winLen, pow_half.data());
         for (keel::usize b = 0; b < M; ++b) {
-            double s = 0.0;
+            keel::f64 s = 0.0;
             for (keel::usize k = 0; k < H; ++k) s += fb[b + k * M] * pow_half[k];
             Sd[b + f * M] = s;
         }
@@ -155,13 +155,13 @@ Value audioDeltaFull(const Value &x, int windowLength,
     }
 
     keel::ArenaTemp scratch = keel::get_scratch(mr);
-    keel::Array<double> colIn(R, scratch.allocator());
-    keel::Array<double> colOut(R, scratch.allocator());
-    keel::Array<double> ziCol(haveZi ? stateLen : 0, scratch.allocator());
-    keel::Array<double> zfAll(finalCondition ? (stateLen * C) : 0, scratch.allocator());
+    keel::Array<keel::f64> colIn(R, scratch.allocator());
+    keel::Array<keel::f64> colOut(R, scratch.allocator());
+    keel::Array<keel::f64> ziCol(haveZi ? stateLen : 0, scratch.allocator());
+    keel::Array<keel::f64> zfAll(finalCondition ? (stateLen * C) : 0, scratch.allocator());
 
-    double *od = wantSingle ? nullptr : out.doubleDataMut();
-    float *of = wantSingle ? out.singleDataMut() : nullptr;
+    keel::f64 *od = wantSingle ? nullptr : out.doubleDataMut();
+    keel::f32 *of = wantSingle ? out.singleDataMut() : nullptr;
 
     for (keel::usize c = 0; c < C; ++c) {
         for (keel::usize n = 0; n < R; ++n) colIn[n] = x.elemAsDouble(n + c * R);
@@ -171,13 +171,13 @@ Value audioDeltaFull(const Value &x, int windowLength,
                                        : initialCondition->elemAsDouble(c * stateLen + i);
             }
         }
-        keel::MutArrayRef<double> zfCol =
-            finalCondition ? keel::MutArrayRef<double>(zfAll.data() + c * stateLen, stateLen)
-                           : keel::MutArrayRef<double>{};
+        keel::MutArrayRef<keel::f64> zfCol =
+            finalCondition ? keel::MutArrayRef<keel::f64>(zfAll.data() + c * stateLen, stateLen)
+                           : keel::MutArrayRef<keel::f64>{};
         (void)keel::audio::audio_delta(colIn, L, colOut, ziCol, zfCol, mr);
 
         if (of) {
-            for (keel::usize n = 0; n < R; ++n) of[n + c * R] = keel::as<float>(colOut[n]);
+            for (keel::usize n = 0; n < R; ++n) of[n + c * R] = keel::as<keel::f32>(colOut[n]);
         } else {
             for (keel::usize n = 0; n < R; ++n) od[n + c * R] = colOut[n];
         }
@@ -187,10 +187,10 @@ Value audioDeltaFull(const Value &x, int windowLength,
         *finalCondition = Value::matrix(stateLen, C,
                                         wantSingle ? ValueType::SINGLE
                                                    : ValueType::DOUBLE, mr);
-        double *fd = wantSingle ? nullptr : finalCondition->doubleDataMut();
-        float *ff = wantSingle ? finalCondition->singleDataMut() : nullptr;
+        keel::f64 *fd = wantSingle ? nullptr : finalCondition->doubleDataMut();
+        keel::f32 *ff = wantSingle ? finalCondition->singleDataMut() : nullptr;
         for (keel::usize i = 0; i < stateLen * C; ++i) {
-            if (ff) ff[i] = keel::as<float>(zfAll[i]);
+            if (ff) ff[i] = keel::as<keel::f32>(zfAll[i]);
             else    fd[i] = zfAll[i];
         }
     }

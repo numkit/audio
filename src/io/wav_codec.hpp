@@ -29,7 +29,7 @@ AudioInfo peekWav(const keel::u8 *data, keel::usize len);
 
 /// Encode audio matrix `y` (N x C) to in-memory WAV byte stream.
 /// @param bitsPerSample 8, 16, 24, or 32 (32-bit floats encoded as IEEE Float format 3).
-keel::Array<keel::u8> writeWavToBytes(const Value &y, double sampleRate,
+keel::Array<keel::u8> writeWavToBytes(const Value &y, keel::f64 sampleRate,
                                       keel::u16 bitsPerSample = 16,
                                       keel::StringRef title = "",
                                       keel::StringRef artist = "",

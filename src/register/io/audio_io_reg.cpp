@@ -94,7 +94,7 @@ void audiowrite_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::M
 
     const keel::String path = args[0].toString();
     const Value &y = args[1];
-    double sampleRate = args[2].isNumeric() ? args[2].elemAsDouble(0) : 44100.0;
+    keel::f64 sampleRate = args[2].isNumeric() ? args[2].elemAsDouble(0) : 44100.0;
 
     keel::String ext = lowerExt(path.as_ref());
     if (ext.empty()) ext.assign("wav");
@@ -158,12 +158,12 @@ void audioinfo_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::Mu
     Value s = Value::structure(mr);
     s.field("Filename")          = Value::fromString(path.as_ref(), mr);
     s.field("CompressionMethod") = Value::fromString(info.compressionMethod.as_ref(), mr);
-    s.field("NumChannels")        = Value::scalar(keel::as<double>(info.numChannels), mr);
+    s.field("NumChannels")        = Value::scalar(keel::as<keel::f64>(info.numChannels), mr);
     s.field("SampleRate")         = Value::scalar(info.sampleRate, mr);
-    s.field("TotalSamples")       = Value::scalar(keel::as<double>(info.totalSamples), mr);
+    s.field("TotalSamples")       = Value::scalar(keel::as<keel::f64>(info.totalSamples), mr);
     s.field("Duration")           = Value::scalar(info.duration, mr);
-    s.field("BitsPerSample")      = Value::scalar(keel::as<double>(info.bitsPerSample), mr);
-    s.field("BitRate")            = Value::scalar(keel::as<double>(info.bitRate), mr);
+    s.field("BitsPerSample")      = Value::scalar(keel::as<keel::f64>(info.bitsPerSample), mr);
+    s.field("BitRate")            = Value::scalar(keel::as<keel::f64>(info.bitRate), mr);
     s.field("Title")              = Value::fromString(info.title.as_ref(), mr);
     s.field("Artist")             = Value::fromString(info.artist.as_ref(), mr);
     s.field("Comment")            = Value::fromString(info.comment.as_ref(), mr);
@@ -189,12 +189,12 @@ void midiread_reg(keel::ArrayRef<Value> args, keel::usize nargout, keel::MutArra
         MidiInfo mi = peekMidi(reinterpret_cast<const keel::u8 *>(bytes.data()), bytes.size());
         auto *mr = ctx.engine->allocator();
         Value s = Value::structure(mr);
-        s.field("Format")               = Value::scalar(keel::as<double>(mi.format), mr);
-        s.field("NumTracks")            = Value::scalar(keel::as<double>(mi.numTracks), mr);
-        s.field("TicksPerQuarterNote")  = Value::scalar(keel::as<double>(mi.ticksPerQuarterNote), mr);
+        s.field("Format")               = Value::scalar(keel::as<keel::f64>(mi.format), mr);
+        s.field("NumTracks")            = Value::scalar(keel::as<keel::f64>(mi.numTracks), mr);
+        s.field("TicksPerQuarterNote")  = Value::scalar(keel::as<keel::f64>(mi.ticksPerQuarterNote), mr);
         s.field("InitialTempoBpm")      = Value::scalar(mi.initialTempoBpm, mr);
         s.field("Duration")             = Value::scalar(mi.duration, mr);
-        s.field("TotalNotes")           = Value::scalar(keel::as<double>(mi.totalNotes), mr);
+        s.field("TotalNotes")           = Value::scalar(keel::as<keel::f64>(mi.totalNotes), mr);
         s.field("TrackName")            = Value::fromString(mi.trackName.as_ref(), mr);
         outs[1] = std::move(s);
     }
@@ -208,7 +208,7 @@ void midiwrite_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::Mu
     const Value &notes = args[1];
 
     keel::u16 tpqn = 480;
-    double tempo = 120.0;
+    keel::f64 tempo = 120.0;
     if (args.size() >= 3 && args[2].isNumeric()) tpqn = keel::as<keel::u16>(args[2].elemAsDouble(0));
     if (args.size() >= 4 && args[3].isNumeric()) tempo = args[3].elemAsDouble(0);
 
@@ -237,12 +237,12 @@ void midiinfo_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::Mut
 
     auto *mr = ctx.engine->allocator();
     Value s = Value::structure(mr);
-    s.field("Format")               = Value::scalar(keel::as<double>(mi.format), mr);
-    s.field("NumTracks")            = Value::scalar(keel::as<double>(mi.numTracks), mr);
-    s.field("TicksPerQuarterNote")  = Value::scalar(keel::as<double>(mi.ticksPerQuarterNote), mr);
+    s.field("Format")               = Value::scalar(keel::as<keel::f64>(mi.format), mr);
+    s.field("NumTracks")            = Value::scalar(keel::as<keel::f64>(mi.numTracks), mr);
+    s.field("TicksPerQuarterNote")  = Value::scalar(keel::as<keel::f64>(mi.ticksPerQuarterNote), mr);
     s.field("InitialTempoBpm")      = Value::scalar(mi.initialTempoBpm, mr);
     s.field("Duration")             = Value::scalar(mi.duration, mr);
-    s.field("TotalNotes")           = Value::scalar(keel::as<double>(mi.totalNotes), mr);
+    s.field("TotalNotes")           = Value::scalar(keel::as<keel::f64>(mi.totalNotes), mr);
     s.field("TrackName")            = Value::fromString(mi.trackName.as_ref(), mr);
 
     outs[0] = std::move(s);

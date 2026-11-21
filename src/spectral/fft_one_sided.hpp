@@ -30,12 +30,12 @@
 namespace numkit::audio::detail {
 
 inline void fftPowerHalf(keel::Allocator *mr,
-                         const double *x, keel::usize N,
-                         double *out_pow_half)
+                         const keel::f64 *x, keel::usize N,
+                         keel::f64 *out_pow_half)
 {
     keel::ArenaTemp arena = keel::get_scratch(mr);
     Value frame = Value::matrix(N, 1, ValueType::DOUBLE, arena.allocator());
-    double *fd = frame.doubleDataMut();
+    keel::f64 *fd = frame.doubleDataMut();
     for (keel::usize i = 0; i < N; ++i) fd[i] = x[i];
     Value Y = signal::fft(frame, -1, 0, arena.allocator());
     const keel::c64 *Yd = Y.complexData();
@@ -44,12 +44,12 @@ inline void fftPowerHalf(keel::Allocator *mr,
 }
 
 inline void fftMagHalf(keel::Allocator *mr,
-                       const double *x, keel::usize N,
-                       double *out_mag_half)
+                       const keel::f64 *x, keel::usize N,
+                       keel::f64 *out_mag_half)
 {
     keel::ArenaTemp arena = keel::get_scratch(mr);
     Value frame = Value::matrix(N, 1, ValueType::DOUBLE, arena.allocator());
-    double *fd = frame.doubleDataMut();
+    keel::f64 *fd = frame.doubleDataMut();
     for (keel::usize i = 0; i < N; ++i) fd[i] = x[i];
     Value Y = signal::fft(frame, -1, 0, arena.allocator());
     const keel::c64 *Yd = Y.complexData();
@@ -61,12 +61,12 @@ inline void fftMagHalf(keel::Allocator *mr,
 // (or truncated, never in practice — callers reject nfft < frameLen)
 // to nfft before the transform; out_half has nfft/2+1 power bins.
 inline void fftPowerHalfN(keel::Allocator *mr,
-                          const double *x, keel::usize frameLen,
-                          keel::usize nfft, double *out_pow_half)
+                          const keel::f64 *x, keel::usize frameLen,
+                          keel::usize nfft, keel::f64 *out_pow_half)
 {
     keel::ArenaTemp arena = keel::get_scratch(mr);
     Value frame = Value::matrix(nfft, 1, ValueType::DOUBLE, arena.allocator());
-    double *fd = frame.doubleDataMut();
+    keel::f64 *fd = frame.doubleDataMut();
     const keel::usize n = frameLen < nfft ? frameLen : nfft;
     for (keel::usize i = 0; i < n; ++i) fd[i] = x[i];
     Value Y = signal::fft(frame, -1, 0, arena.allocator());
