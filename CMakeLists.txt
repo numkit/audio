@@ -137,10 +137,10 @@ if(NOT TARGET numkit_signal_core)
     endif()
 endif()
 
-# Dependency: keelcpp/audio (strictly PRIVATE to numkit_audio_core)
+# Dependency: keelcpp/audiofile (strictly PRIVATE to numkit_audio_core)
 foreach(_keel_pair
     "KEEL:keel"
-    "KEEL_AUDIO:audio"
+    "KEEL_AUDIOFILE:audiofile"
 )
     string(REPLACE ":" ";" _keel_parts "${_keel_pair}")
     list(GET _keel_parts 0 _keel_var)
@@ -159,7 +159,7 @@ foreach(_keel_pair
 endforeach()
 
 set(KEEL_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(KEEL_AUDIO_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(KEEL_AUDIOFILE_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 
 if(NOT TARGET keel::keel)
     find_package(keel QUIET CONFIG)
@@ -168,24 +168,24 @@ if(NOT TARGET keel::keel)
     FetchContent_Declare(
         keel
         GIT_REPOSITORY https://github.com/keelcpp/keel.git
-        GIT_TAG        3527855c8aab9cf3635fd22df883902d267482e9
+        GIT_TAG        f9fcebfba18d98d2c14c8e62a1913412f1299220
     )
     FetchContent_MakeAvailable(keel)
 endif()
 
-if(NOT TARGET keel::audio)
-    find_package(keel_audio QUIET CONFIG)
-    if(TARGET keel::keel_audio AND NOT TARGET keel::audio)
-        add_library(keel::audio ALIAS keel::keel_audio)
+if(NOT TARGET keel::audiofile)
+    find_package(keel_audiofile QUIET CONFIG)
+    if(TARGET keel::keel_audiofile AND NOT TARGET keel::audiofile)
+        add_library(keel::audiofile ALIAS keel::keel_audiofile)
     endif()
 endif()
-if(NOT TARGET keel::audio)
+if(NOT TARGET keel::audiofile)
     FetchContent_Declare(
-        keel_audio
-        GIT_REPOSITORY https://github.com/keelcpp/audio.git
-        GIT_TAG        5957b55613226d178ba42606bad622936a1924a7
+        keel_audiofile
+        GIT_REPOSITORY https://github.com/keelcpp/audiofile.git
+        GIT_TAG        8bcd55a51ce4b6132afb37d364a895dd296aecbe
     )
-    FetchContent_MakeAvailable(keel_audio)
+    FetchContent_MakeAvailable(keel_audiofile)
 endif()
 
 file(GLOB_RECURSE AUDIO_COMPUTE_SOURCES
@@ -221,7 +221,7 @@ target_include_directories(numkit_audio_core
 
 target_link_libraries(numkit_audio_core
     PUBLIC numkit_value numkit_sys numkit_ops numkit_signal_core
-    PRIVATE keel::audio
+    PRIVATE keel::audiofile
 )
 
 if(NUMKIT_WITH_SIMD)

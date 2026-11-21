@@ -2,7 +2,7 @@
 //
 // Thin PRIVATE adapter bridging NumKit's Audio & MIDI I/O APIs
 // (audioread, audiowrite, audioinfo, midiread, midiwrite, midiinfo)
-// to keel::audio.
+// to keel::audiofile.
 
 #include <keel/array.h>
 #include <keel/core.h>
@@ -24,7 +24,7 @@
 #include <numkit/value/error.hpp>
 #include <numkit/value/value.hpp>
 
-#include "keel/audio.h"
+#include "keel/audiofile.h"
 #include "keel/midi.h"
 
 #include <keel/utf8.h>
@@ -66,15 +66,15 @@ void writeFileDirect(keel::StringRef path, keel::ArrayRef<keel::u8> data) {
     }
 }
 
-void audioread_argcheck(keel::audio::AudioFormat fmt) {
-    if (fmt == keel::audio::AudioFormat::Unknown || fmt == keel::audio::AudioFormat::Midi) {
+void audioread_argcheck(keel::audiofile::AudioFormat fmt) {
+    if (fmt == keel::audiofile::AudioFormat::Unknown || fmt == keel::audiofile::AudioFormat::Midi) {
         throw Error("audioread: unrecognized or unsupported audio file format",
                     0, 0, "audioread", "", "numkit:audioread:unsupportedFormat");
     }
 }
 
-void audioinfo_argcheck(keel::audio::AudioFormat fmt) {
-    if (fmt == keel::audio::AudioFormat::Unknown || fmt == keel::audio::AudioFormat::Midi) {
+void audioinfo_argcheck(keel::audiofile::AudioFormat fmt) {
+    if (fmt == keel::audiofile::AudioFormat::Unknown || fmt == keel::audiofile::AudioFormat::Midi) {
         throw Error("audioinfo: unrecognized or unsupported audio file format",
                     0, 0, "audioinfo", "", "numkit:audioinfo:unsupportedFormat");
     }
@@ -96,8 +96,8 @@ void audiowriteMatrix_argcheck(keel::usize numFrames, keel::usize numChannels) {
     }
 }
 
-keel::audio::AudioDecodeOptions makeDecodeOpts(keel::i64 startSample, keel::i64 endSample, bool nativeType) {
-    keel::audio::AudioDecodeOptions opts;
+keel::audiofile::AudioDecodeOptions makeDecodeOpts(keel::i64 startSample, keel::i64 endSample, bool nativeType) {
+    keel::audiofile::AudioDecodeOptions opts;
     const keel::i64 s0 = (startSample < 1) ? 0 : (startSample - 1);
     opts.start_frame = static_cast<keel::u64>(s0);
     if (endSample < 0) {
@@ -107,11 +107,11 @@ keel::audio::AudioDecodeOptions makeDecodeOpts(keel::i64 startSample, keel::i64 
         opts.end_frame = (s1 < opts.start_frame) ? opts.start_frame : s1;
     }
     opts.native_sample_type = nativeType;
-    opts.layout = keel::audio::AudioChannelLayout::Planar;
+    opts.layout = keel::audiofile::AudioChannelLayout::Planar;
     return opts;
 }
 
-AudioData bufferToAudioData(const keel::audio::AudioBuffer &buf, bool nativeType,
+AudioData bufferToAudioData(const keel::audiofile::AudioBuffer &buf, bool nativeType,
                             keel::Allocator *mr) {
     AudioData res;
     res.sampleRate = buf.sample_rate;
@@ -136,30 +136,30 @@ AudioData bufferToAudioData(const keel::audio::AudioBuffer &buf, bool nativeType
     }
 
     switch (buf.sample_type) {
-        case keel::audio::AudioSampleType::U8:
+        case keel::audiofile::AudioSampleType::U8:
             res.y = Value::matrix(frames, channels, ValueType::UINT8, mr);
             std::memcpy(res.y.uint8DataMut(), buf.data.data(), frames * channels);
             break;
-        case keel::audio::AudioSampleType::I8:
+        case keel::audiofile::AudioSampleType::I8:
             res.y = Value::matrix(frames, channels, ValueType::INT16, mr);
             for (keel::usize i = 0; i < frames * channels; ++i) {
                 const auto s8 = static_cast<keel::i8>(buf.data[i]);
                 res.y.int16DataMut()[i] = static_cast<keel::i16>(static_cast<int>(s8) << 8);
             }
             break;
-        case keel::audio::AudioSampleType::I16:
+        case keel::audiofile::AudioSampleType::I16:
             res.y = Value::matrix(frames, channels, ValueType::INT16, mr);
             std::memcpy(res.y.int16DataMut(), buf.data.data(), frames * channels * sizeof(keel::i16));
             break;
-        case keel::audio::AudioSampleType::I32:
+        case keel::audiofile::AudioSampleType::I32:
             res.y = Value::matrix(frames, channels, ValueType::INT32, mr);
             std::memcpy(res.y.int32DataMut(), buf.data.data(), frames * channels * sizeof(keel::i32));
             break;
-        case keel::audio::AudioSampleType::F32:
+        case keel::audiofile::AudioSampleType::F32:
             res.y = Value::matrix(frames, channels, ValueType::SINGLE, mr);
             std::memcpy(res.y.singleDataMut(), buf.data.data(), frames * channels * sizeof(float));
             break;
-        case keel::audio::AudioSampleType::F64:
+        case keel::audiofile::AudioSampleType::F64:
             res.y = Value::matrix(frames, channels, ValueType::DOUBLE, mr);
             std::memcpy(res.y.doubleDataMut(), buf.data.data(), frames * channels * sizeof(double));
             break;
@@ -167,9 +167,9 @@ AudioData bufferToAudioData(const keel::audio::AudioBuffer &buf, bool nativeType
     return res;
 }
 
-AudioInfo keelInfoToAudioInfo(const keel::audio::AudioInfo &ki) {
+AudioInfo keelInfoToAudioInfo(const keel::audiofile::AudioInfo &ki) {
     AudioInfo info;
-    info.format = keel::String::from(keel::audio::audio_format_name(ki.format));
+    info.format = keel::String::from(keel::audiofile::audio_format_name(ki.format));
     info.compressionMethod = keel::String::from(ki.compression_method.as_ref());
     info.numChannels = ki.channels;
     info.sampleRate = ki.sample_rate;
@@ -185,7 +185,7 @@ AudioInfo keelInfoToAudioInfo(const keel::audio::AudioInfo &ki) {
 
 struct PreparedAudioInput {
     keel::Array<double> promoted;
-    keel::audio::AudioView view;
+    keel::audiofile::AudioView view;
 };
 
 PreparedAudioInput prepareEncodeInput(const Value &y, double sampleRate, bool preserveSingle) {
@@ -198,17 +198,17 @@ PreparedAudioInput prepareEncodeInput(const Value &y, double sampleRate, bool pr
 
     PreparedAudioInput out;
     if (preserveSingle && y.type() == ValueType::SINGLE) {
-        out.view = keel::audio::AudioView::from_f32(
+        out.view = keel::audiofile::AudioView::from_f32(
             keel::ArrayRef<keel::f32>(y.singleData(), numFrames * numChannels),
             numFrames, static_cast<keel::u16>(numChannels), sampleRate,
-            keel::audio::AudioChannelLayout::Planar);
+            keel::audiofile::AudioChannelLayout::Planar);
         return out;
     }
     if (y.type() == ValueType::DOUBLE) {
-        out.view = keel::audio::AudioView::from_f64(
+        out.view = keel::audiofile::AudioView::from_f64(
             keel::ArrayRef<keel::f64>(y.doubleData(), numFrames * numChannels),
             numFrames, static_cast<keel::u16>(numChannels), sampleRate,
-            keel::audio::AudioChannelLayout::Planar);
+            keel::audiofile::AudioChannelLayout::Planar);
         return out;
     }
 
@@ -216,10 +216,10 @@ PreparedAudioInput prepareEncodeInput(const Value &y, double sampleRate, bool pr
     for (keel::usize i = 0; i < numFrames * numChannels; ++i) {
         out.promoted[i] = y.elemAsDouble(i);
     }
-    out.view = keel::audio::AudioView::from_f64(
+    out.view = keel::audiofile::AudioView::from_f64(
         keel::ArrayRef<keel::f64>(out.promoted.data(), out.promoted.size()),
         numFrames, static_cast<keel::u16>(numChannels), sampleRate,
-        keel::audio::AudioChannelLayout::Planar);
+        keel::audiofile::AudioChannelLayout::Planar);
     return out;
 }
 
@@ -230,42 +230,42 @@ PreparedAudioInput prepareEncodeInput(const Value &y, double sampleRate, bool pr
 // ============================================================================
 
 bool isWavBytes(const keel::u8 *data, keel::usize len) {
-    return keel::audio::is_wav_bytes(toRef(data, len));
+    return keel::audiofile::is_wav_bytes(toRef(data, len));
 }
 bool isWavBytes(keel::StringRef b) {
     return isWavBytes(reinterpret_cast<const keel::u8 *>(b.data()), b.size());
 }
 
 bool isFlacBytes(const keel::u8 *data, keel::usize len) {
-    return keel::audio::is_flac_bytes(toRef(data, len));
+    return keel::audiofile::is_flac_bytes(toRef(data, len));
 }
 bool isFlacBytes(keel::StringRef b) {
     return isFlacBytes(reinterpret_cast<const keel::u8 *>(b.data()), b.size());
 }
 
 bool isMp3Bytes(const keel::u8 *data, keel::usize len) {
-    return keel::audio::is_mp3_bytes(toRef(data, len));
+    return keel::audiofile::is_mp3_bytes(toRef(data, len));
 }
 bool isMp3Bytes(keel::StringRef b) {
     return isMp3Bytes(reinterpret_cast<const keel::u8 *>(b.data()), b.size());
 }
 
 bool isAiffBytes(const keel::u8 *data, keel::usize len) {
-    return keel::audio::is_aiff_bytes(toRef(data, len));
+    return keel::audiofile::is_aiff_bytes(toRef(data, len));
 }
 bool isAiffBytes(keel::StringRef b) {
     return isAiffBytes(reinterpret_cast<const keel::u8 *>(b.data()), b.size());
 }
 
 bool isAuBytes(const keel::u8 *data, keel::usize len) {
-    return keel::audio::is_au_bytes(toRef(data, len));
+    return keel::audiofile::is_au_bytes(toRef(data, len));
 }
 bool isAuBytes(keel::StringRef b) {
     return isAuBytes(reinterpret_cast<const keel::u8 *>(b.data()), b.size());
 }
 
 bool isMidiBytes(const keel::u8 *data, keel::usize len) {
-    return keel::audio::is_midi_bytes(toRef(data, len));
+    return keel::audiofile::is_midi_bytes(toRef(data, len));
 }
 bool isMidiBytes(keel::StringRef b) {
     return isMidiBytes(reinterpret_cast<const keel::u8 *>(b.data()), b.size());
@@ -278,7 +278,7 @@ bool isMidiBytes(keel::StringRef b) {
 AudioData readWav(const keel::u8 *data, keel::usize len,
                   keel::i64 startSample, keel::i64 endSample,
                   bool nativeType, keel::Allocator *mr) {
-    auto res = keel::audio::decode_wav(toRef(data, len), makeDecodeOpts(startSample, endSample, nativeType));
+    auto res = keel::audiofile::decode_wav(toRef(data, len), makeDecodeOpts(startSample, endSample, nativeType));
     if (!res) {
         throw Error("audioread: failed to decode WAV stream",
                     0, 0, "audioread", "", "numkit:audioread:wav");
@@ -287,7 +287,7 @@ AudioData readWav(const keel::u8 *data, keel::usize len,
 }
 
 AudioInfo peekWav(const keel::u8 *data, keel::usize len) {
-    auto res = keel::audio::peek_wav(toRef(data, len));
+    auto res = keel::audiofile::peek_wav(toRef(data, len));
     if (!res) {
         throw Error("audioinfo: not a valid RIFF/WAVE audio stream",
                     0, 0, "audioinfo", "", "numkit:audioinfo:wav");
@@ -305,14 +305,14 @@ keel::Array<keel::u8> writeWavToBytes(const Value &y, double sampleRate,
         bitsPerSample = 16;
     }
     auto input = prepareEncodeInput(y, sampleRate, /*preserveSingle=*/(bitsPerSample == 32));
-    keel::audio::AudioEncodeOptions opts;
+    keel::audiofile::AudioEncodeOptions opts;
     opts.bits_per_sample = bitsPerSample;
     opts.float_samples = (y.type() == ValueType::SINGLE && bitsPerSample == 32) || (bitsPerSample == 64);
     opts.title = title;
     opts.artist = artist;
     opts.comment = comment;
 
-    auto res = keel::audio::encode_wav(input.view, opts);
+    auto res = keel::audiofile::encode_wav(input.view, opts);
     if (!res) {
         throw Error("audiowrite: failed to encode WAV stream",
                     0, 0, "audiowrite", "", "numkit:audiowrite:wav");
@@ -323,7 +323,7 @@ keel::Array<keel::u8> writeWavToBytes(const Value &y, double sampleRate,
 AudioData readFlac(const keel::u8 *data, keel::usize len,
                    keel::i64 startSample, keel::i64 endSample,
                    bool nativeType, keel::Allocator *mr) {
-    auto res = keel::audio::decode_flac(toRef(data, len), makeDecodeOpts(startSample, endSample, nativeType));
+    auto res = keel::audiofile::decode_flac(toRef(data, len), makeDecodeOpts(startSample, endSample, nativeType));
     if (!res) {
         throw Error("audioread: failed to decode FLAC stream",
                     0, 0, "audioread", "", "numkit:audioread:flac");
@@ -332,7 +332,7 @@ AudioData readFlac(const keel::u8 *data, keel::usize len,
 }
 
 AudioInfo peekFlac(const keel::u8 *data, keel::usize len) {
-    auto res = keel::audio::peek_flac(toRef(data, len));
+    auto res = keel::audiofile::peek_flac(toRef(data, len));
     if (!res) {
         throw Error("audioinfo: not a valid FLAC audio stream",
                     0, 0, "audioinfo", "", "numkit:audioinfo:flac");
@@ -343,7 +343,7 @@ AudioInfo peekFlac(const keel::u8 *data, keel::usize len) {
 AudioData readMp3(const keel::u8 *data, keel::usize len,
                   keel::i64 startSample, keel::i64 endSample,
                   bool nativeType, keel::Allocator *mr) {
-    auto res = keel::audio::decode_mp3(toRef(data, len), makeDecodeOpts(startSample, endSample, nativeType));
+    auto res = keel::audiofile::decode_mp3(toRef(data, len), makeDecodeOpts(startSample, endSample, nativeType));
     if (!res) {
         throw Error("audioread: failed to decode MP3 stream",
                     0, 0, "audioread", "", "numkit:audioread:mp3");
@@ -352,7 +352,7 @@ AudioData readMp3(const keel::u8 *data, keel::usize len,
 }
 
 AudioInfo peekMp3(const keel::u8 *data, keel::usize len) {
-    auto res = keel::audio::peek_mp3(toRef(data, len));
+    auto res = keel::audiofile::peek_mp3(toRef(data, len));
     if (!res) {
         throw Error("audioinfo: could not find valid MPEG Audio Layer III frame sync",
                     0, 0, "audioinfo", "", "numkit:audioinfo:mp3");
@@ -363,7 +363,7 @@ AudioInfo peekMp3(const keel::u8 *data, keel::usize len) {
 AudioData readAiff(const keel::u8 *data, keel::usize len,
                    keel::i64 startSample, keel::i64 endSample,
                    bool nativeType, keel::Allocator *mr) {
-    auto res = keel::audio::decode_aiff(toRef(data, len), makeDecodeOpts(startSample, endSample, nativeType));
+    auto res = keel::audiofile::decode_aiff(toRef(data, len), makeDecodeOpts(startSample, endSample, nativeType));
     if (!res) {
         throw Error("audioread: failed to decode AIFF stream",
                     0, 0, "audioread", "", "numkit:audioread:aiff");
@@ -372,7 +372,7 @@ AudioData readAiff(const keel::u8 *data, keel::usize len,
 }
 
 AudioInfo peekAiff(const keel::u8 *data, keel::usize len) {
-    auto res = keel::audio::peek_aiff(toRef(data, len));
+    auto res = keel::audiofile::peek_aiff(toRef(data, len));
     if (!res) {
         throw Error("audioinfo: not a valid AIFF audio stream",
                     0, 0, "audioinfo", "", "numkit:audioinfo:aiff");
@@ -389,14 +389,14 @@ keel::Array<keel::u8> writeAiffToBytes(const Value &y, double sampleRate,
         bitsPerSample = 16;
     }
     auto input = prepareEncodeInput(y, sampleRate, /*preserveSingle=*/false);
-    keel::audio::AudioEncodeOptions opts;
+    keel::audiofile::AudioEncodeOptions opts;
     opts.bits_per_sample = bitsPerSample;
     opts.float_samples = false;
     opts.title = title;
     opts.artist = artist;
     opts.comment = comment;
 
-    auto res = keel::audio::encode_aiff(input.view, opts);
+    auto res = keel::audiofile::encode_aiff(input.view, opts);
     if (!res) {
         throw Error("audiowrite: failed to encode AIFF stream",
                     0, 0, "audiowrite", "", "numkit:audiowrite:aiff");
@@ -407,7 +407,7 @@ keel::Array<keel::u8> writeAiffToBytes(const Value &y, double sampleRate,
 AudioData readAu(const keel::u8 *data, keel::usize len,
                  keel::i64 startSample, keel::i64 endSample,
                  bool nativeType, keel::Allocator *mr) {
-    auto res = keel::audio::decode_au(toRef(data, len), makeDecodeOpts(startSample, endSample, nativeType));
+    auto res = keel::audiofile::decode_au(toRef(data, len), makeDecodeOpts(startSample, endSample, nativeType));
     if (!res) {
         throw Error("audioread: failed to decode AU/SND stream",
                     0, 0, "audioread", "", "numkit:audioread:au");
@@ -416,7 +416,7 @@ AudioData readAu(const keel::u8 *data, keel::usize len,
 }
 
 AudioInfo peekAu(const keel::u8 *data, keel::usize len) {
-    auto res = keel::audio::peek_au(toRef(data, len));
+    auto res = keel::audiofile::peek_au(toRef(data, len));
     if (!res) {
         throw Error("audioinfo: not a valid AU/SND audio stream",
                     0, 0, "audioinfo", "", "numkit:audioinfo:au");
@@ -431,12 +431,12 @@ keel::Array<keel::u8> writeAuToBytes(const Value &y, double sampleRate,
         bitsPerSample = 16;
     }
     auto input = prepareEncodeInput(y, sampleRate, /*preserveSingle=*/false);
-    keel::audio::AudioEncodeOptions opts;
+    keel::audiofile::AudioEncodeOptions opts;
     opts.bits_per_sample = bitsPerSample;
     opts.float_samples = false;
     opts.comment = comment;
 
-    auto res = keel::audio::encode_au(input.view, opts);
+    auto res = keel::audiofile::encode_au(input.view, opts);
     if (!res) {
         throw Error("audiowrite: failed to encode AU/SND stream",
                     0, 0, "audiowrite", "", "numkit:audiowrite:au");
@@ -449,7 +449,7 @@ keel::Array<keel::u8> writeAuToBytes(const Value &y, double sampleRate,
 // ============================================================================
 
 MidiInfo peekMidi(const keel::u8 *data, keel::usize len) {
-    auto res = keel::audio::peek_midi(toRef(data, len));
+    auto res = keel::audiofile::peek_midi(toRef(data, len));
     if (!res) {
         throw Error("midiinfo: not a valid MIDI file",
                     0, 0, "midiinfo", "", "numkit:midiinfo:badMagic");
@@ -468,7 +468,7 @@ MidiInfo peekMidi(const keel::u8 *data, keel::usize len) {
 
 Value readMidi(const keel::u8 *data, keel::usize len,
                keel::Allocator *mr) {
-    auto res = keel::audio::decode_midi(toRef(data, len));
+    auto res = keel::audiofile::decode_midi(toRef(data, len));
     if (!res) {
         throw Error("midiread: not a valid MIDI file",
                     0, 0, "midiread", "", "numkit:midiread:badMagic");
@@ -501,7 +501,7 @@ keel::Array<keel::u8> writeMidiToBytes(const Value &notesMatrix,
         tempoBpm = 120.0;
     }
 
-    keel::Array<keel::audio::MidiNote> notes(numNotes);
+    keel::Array<keel::audiofile::MidiNote> notes(numNotes);
     for (keel::usize i = 0; i < numNotes; ++i) {
         int trk = 0;
         if (d.cols() >= 1) {
@@ -524,7 +524,7 @@ keel::Array<keel::u8> writeMidiToBytes(const Value &notesMatrix,
             ? std::max(startSec, notesMatrix.elemAsDouble(5 * numNotes + i))
             : (startSec + 0.5);
 
-        keel::audio::MidiNote kn;
+        keel::audiofile::MidiNote kn;
         kn.track = static_cast<keel::u16>(trk);
         kn.channel = static_cast<keel::u8>(ch);
         kn.note_number = static_cast<keel::u8>(noteNum);
@@ -535,11 +535,11 @@ keel::Array<keel::u8> writeMidiToBytes(const Value &notesMatrix,
         notes[i] = kn;
     }
 
-    keel::audio::MidiEncodeOptions opts;
+    keel::audiofile::MidiEncodeOptions opts;
     opts.ticks_per_quarter_note = ticksPerQuarterNote;
     opts.tempo_bpm = tempoBpm;
 
-    auto res = keel::audio::encode_midi(notes.as_ref(), opts);
+    auto res = keel::audiofile::encode_midi(notes.as_ref(), opts);
     if (!res) {
         throw Error("midiwrite: failed to encode MIDI notes",
                     0, 0, "midiwrite", "", "numkit:midiwrite:encode");
@@ -555,15 +555,15 @@ AudioData audioreadFromBytes(const keel::u8 *data, keel::usize len,
                              keel::i64 startSample, keel::i64 endSample,
                              bool nativeType,
                              keel::Allocator *mr) {
-    const keel::audio::AudioFormat fmt = keel::audio::sniff_audio_format(toRef(data, len));
+    const keel::audiofile::AudioFormat fmt = keel::audiofile::sniff_audio_format(toRef(data, len));
     audioread_argcheck(fmt);
 
     switch (fmt) {
-        case keel::audio::AudioFormat::Wav:  return readWav(data, len, startSample, endSample, nativeType, mr);
-        case keel::audio::AudioFormat::Flac: return readFlac(data, len, startSample, endSample, nativeType, mr);
-        case keel::audio::AudioFormat::Mp3:  return readMp3(data, len, startSample, endSample, nativeType, mr);
-        case keel::audio::AudioFormat::Aiff: return readAiff(data, len, startSample, endSample, nativeType, mr);
-        case keel::audio::AudioFormat::Au:   return readAu(data, len, startSample, endSample, nativeType, mr);
+        case keel::audiofile::AudioFormat::Wav:  return readWav(data, len, startSample, endSample, nativeType, mr);
+        case keel::audiofile::AudioFormat::Flac: return readFlac(data, len, startSample, endSample, nativeType, mr);
+        case keel::audiofile::AudioFormat::Mp3:  return readMp3(data, len, startSample, endSample, nativeType, mr);
+        case keel::audiofile::AudioFormat::Aiff: return readAiff(data, len, startSample, endSample, nativeType, mr);
+        case keel::audiofile::AudioFormat::Au:   return readAu(data, len, startSample, endSample, nativeType, mr);
         default:
             break;
     }
@@ -580,15 +580,15 @@ AudioData audioreadFromBytes(keel::StringRef bytes,
 }
 
 AudioInfo audioinfoFromBytes(const keel::u8 *data, keel::usize len) {
-    const keel::audio::AudioFormat fmt = keel::audio::sniff_audio_format(toRef(data, len));
+    const keel::audiofile::AudioFormat fmt = keel::audiofile::sniff_audio_format(toRef(data, len));
     audioinfo_argcheck(fmt);
 
     switch (fmt) {
-        case keel::audio::AudioFormat::Wav:  return peekWav(data, len);
-        case keel::audio::AudioFormat::Flac: return peekFlac(data, len);
-        case keel::audio::AudioFormat::Mp3:  return peekMp3(data, len);
-        case keel::audio::AudioFormat::Aiff: return peekAiff(data, len);
-        case keel::audio::AudioFormat::Au:   return peekAu(data, len);
+        case keel::audiofile::AudioFormat::Wav:  return peekWav(data, len);
+        case keel::audiofile::AudioFormat::Flac: return peekFlac(data, len);
+        case keel::audiofile::AudioFormat::Mp3:  return peekMp3(data, len);
+        case keel::audiofile::AudioFormat::Aiff: return peekAiff(data, len);
+        case keel::audiofile::AudioFormat::Au:   return peekAu(data, len);
         default:
             break;
     }
