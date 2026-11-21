@@ -1,248 +1,31 @@
 // toolboxes/audio/src/spectral/cepstral.cpp
-// Audio Cycle D + G: cepstral coefficients (cepstralCoefficients / mfcc / gtcc).
-// cepstralCoefficients pipeline:
-//   S (L bands × M frames) → log10 rectification → DCT-II (unitary)
-//                          → keep first NumCoeffs → permute to M × NumCoeffs
-// DCT-II unitary matrix (Ahmed, Natarajan & Rao, IEEE TC, 1974):
-//   N = NumCoeffs, K = NumFilters
-//   matrix(1, k)   = sqrt(1/K)  (DC row)
-//   matrix(n, k)   = sqrt(2/K) * cos(π·(n-1)·(k-0.5)/K)  for n = 2..N
-// mfcc pipeline (standard MFCC; Davis & Mermelstein, IEEE TASSP, 1980):
-//   1. y = buffer(x, winLen=round(0.03*fs), hop=winLen-round(0.02*fs))
-//   2. logE = log(sum(y.^2))   ← natural log of UNWINDOWED frame energy
-//   3. winCast = hamming(winLen, 'periodic')
-//   4. Z = abs(fft(y .* win, fftLen))   ← MAGNITUDE, full-length FFT
-//   5. Slaney-style mel filterbank with 'Bandwidth' normalization
-//   6. melMag = filterBank.' * Z   (numBands × numFrames)
-//   7. coeffs = cepstralCoefficients(melMag, NumCoeffs=13, Rectification='log')
-//   8. out = [logE.', coeffs]   (numFrames × (NumCoeffs+1))
-// Slaney mel band edges (Slaney, "Auditory Toolbox", Apple TR #45, 1998):
-//   factor = 133.33333333333333
-//   bE[1..13] = factor + (factor/2)*(i-1)        (linear up to 866.66 Hz)
-//   bE[14..42] = bE[i-1] * 1.0711703             (log-spaced, ~27 bands/octave)
-// PMR HARD RULE.
+// Cepstral coefficients (cepstralCoefficients / mfcc / gtcc), delegated to keel::audio.
 
-#include <keel/core.h>
-#include <keel/memory.h>
 #include <keel/arena.h>
 #include <keel/array.h>
-#include <keel/complex.h>
+#include <keel/audio.h>
+#include <keel/core.h>
 #include <keel/format.h>
-#include <keel/math.h>
+#include <keel/memory.h>
 #include <numkit/audio/spectral/cepstral.hpp>
-#include <numkit/audio/spectral/melspec_delta.hpp>
-
-// Compute-only TU: Value substrate + Error, no engine. The
-// cepstralCoefficients / mfcc / gtcc builtins (CallContext wrappers) live
-// in spectral/cepstral_reg.cpp.
 #include <numkit/value/argcheck.hpp>
-#include <numkit/value/value.hpp>
 #include <numkit/value/error.hpp>
+#include <numkit/value/value.hpp>
 
-#include "fft_one_sided.hpp"
-
-#include <algorithm>
 #include <cmath>
-#include <limits>
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
 
 namespace numkit::audio {
 
 namespace {
 
-// Periodic Hamming window: w[n] = 0.54 - 0.46 * cos(2π·n / N).
-void hammingPeriodic(double *w, keel::usize N)
+keel::audio::CepstralRectification toKeelRect(CepstralRect rect) noexcept
 {
-    for (keel::usize n = 0; n < N; ++n)
-        w[n] = 0.54 - 0.46 * std::cos(2.0 * M_PI * static_cast<double>(n)
-                                        / static_cast<double>(N));
-}
-
-// Slaney mel band edges (42 entries; Slaney, "Auditory Toolbox", 1998).
-// factor=133.33...; first 13 linear at factor/2 step; rest log-spaced.
-void slaneyBandEdges(double *edges, keel::usize numEdges = 42)
-{
-    if (numEdges < 1) return;
-    const double factor = 133.33333333333333;
-    const keel::usize linEnd = std::min<keel::usize>(13, numEdges);
-    for (keel::usize i = 0; i < linEnd; ++i)
-        edges[i] = factor + (factor * 0.5) * static_cast<double>(i);
-    for (keel::usize i = linEnd; i < numEdges; ++i)
-        edges[i] = edges[i - 1] * 1.0711703;
-}
-
-// ---------------------------------------------------------------------------
-// designMelFilterBankSlaney — Slaney-style triangular mel filterbank.
-// Each band k places one triangular filter spanning three consecutive mel
-// band edges edges[k] < edges[k+1] < edges[k+2]: the filter rises linearly
-// from 0 at edges[k] to 1 at edges[k+1], then falls linearly back to 0 at
-// edges[k+2] (overlapping-triangle filterbank of Davis & Mermelstein 1980).
-// The filter is sampled on the one-sided FFT frequency grid, bin j having
-// frequency f_j = j * fs / NFFT. Weights are bandwidth-normalised: every
-// weight of band k is divided by half its base width, (edges[k+2]-edges[k])/2,
-// giving each triangle unit area (Slaney, Auditory Toolbox v2, 1998 —
-// Normalization='Bandwidth'). Output FB is column-major, length H*(numEdges-2).
-// Clean-room reimplementation.
-// References:
-//   S. B. Davis and P. Mermelstein, "Comparison of Parametric Representations
-//   for Monosyllabic Word Recognition in Continuously Spoken Sentences",
-//   IEEE Trans. ASSP 28(4):357-366, 1980.
-//   M. Slaney, "Auditory Toolbox, Version 2", Interval Research Corp.
-//   Technical Report #1998-010, 1998.
-// ---------------------------------------------------------------------------
-void designMelFilterBankSlaney(double *FB, double fs, keel::usize NFFT,
-                               const double *edges, keel::usize numEdges,
-                               keel::usize H /* = NFFT/2 + 1 */)
-{
-    // Early return when there is nothing to construct.
-    if (numEdges < 3 || H == 0 || NFFT == 0) {
-        return;
+    switch (rect) {
+        case CepstralRect::Log:       return keel::audio::CepstralRectification::kLog;
+        case CepstralRect::CubicRoot: return keel::audio::CepstralRectification::kCubicRoot;
+        case CepstralRect::None:      return keel::audio::CepstralRectification::kNone;
     }
-
-    const keel::usize numBands = numEdges - 2;
-
-    // Zero the whole output buffer first, then fill it.
-    for (keel::usize i = 0; i < H * numBands; ++i) {
-        FB[i] = 0.0;
-    }
-
-    // Hz per FFT bin on the one-sided frequency grid.
-    const double binToHz = fs / static_cast<double>(NFFT);
-
-    for (keel::usize k = 0; k < numBands; ++k) {
-        const double left = edges[k];
-        const double centre = edges[k + 1];
-        const double right = edges[k + 2];
-
-        const double riseWidth = centre - left;   // base of the rising side
-        const double fallWidth = right - centre;  // base of the falling side
-        const double baseWidth = right - left;    // full triangle base
-
-        // Degenerate guards: a zero/negative side width or non-positive base
-        // width leaves this band's column at zero.
-        if (riseWidth <= 0.0 || fallWidth <= 0.0 || baseWidth <= 0.0) {
-            continue;
-        }
-
-        // Bandwidth normalisation: a unit-height triangle of base baseWidth
-        // has area baseWidth/2; dividing by that yields unit area.
-        const double norm = 2.0 / baseWidth;
-
-        double *column = FB + k * H;
-        for (keel::usize j = 0; j < H; ++j) {
-            const double f = static_cast<double>(j) * binToHz;
-            const double rise = (f - left) / riseWidth;
-            const double fall = (right - f) / fallWidth;
-            const double w = std::max(0.0, std::min(rise, fall));
-            column[j] = w * norm;
-        }
-    }
-}
-
-// ERB scale factor (Glasberg & Moore 1990): log(10)*1000/(24.673*4.368)
-// — matches toolboxes/audio/src/scale/freq_scales.cpp erbScale().
-inline double erbScale()
-{
-    return std::log(10.0) * 1000.0 / (24.673 * 4.368);
-}
-inline double hz2erbVal(double hz) { return erbScale() * std::log10(1.0 + 0.004368 * hz); }
-inline double erb2hzVal(double e)  { return (std::pow(10.0, e / erbScale()) - 1.0) / 0.004368; }
-
-// Compute Patterson-Holdsworth gammatone filterbank frequency response
-// magnitude (one-sided H × NumBands). Filter coefficients per Slaney,
-// "An Efficient Implementation of the Patterson-Holdsworth Auditory
-// Filter Bank", Apple Tech. Report #35, 1993.
-// For each band i with center frequency Fc[i] (Hz):
-//   ERB[i] = Fc[i]/9.26449 + 24.7
-//   B      = 1.019 * 2π * ERB[i]
-//   T      = 1/fs
-//   B1     = -2*cos(2π Fc T)/exp(B T)
-//   B2     = exp(-2 B T)
-//   A0     = T;  A2 = 0
-//   A11..A14 = -(2T cos(2π Fc T)/exp(B T) ± 2 sqrt(3 ± 2^(3/2)) T sin(2π Fc T)/exp(B T))/2
-//   gain   = (complex polynomial — see Slaney 1993, eq. 4.6)
-// Each band is a CASCADE of 4 biquads:
-//   sec1: [A0/gain, A11/gain, A2/gain]/[B0, B1, B2]   (gain applied here)
-//   sec2: [A0,      A12,      A2]    /[B0, B1, B2]
-//   sec3: [A0,      A13,      A2]    /[B0, B1, B2]
-//   sec4: [A0,      A14,      A2]    /[B0, B1, B2]
-// freqz(...,'whole') evaluates H at ω = 2π k/N for k=0..N-1.
-// We compute one-sided (k=0..N/2) since H is conjugate-symmetric for
-// real coefficients.
-void computeGammatoneFreqRespOneSided(double fs, const double *Fc, keel::usize numBands,
-                                       keel::usize NFFT, keel::usize H, double *bank)
-{
-    const double T = 1.0 / fs;
-    const double EarQ = 9.26449;
-    const double minBW = 24.7;
-    const double s32a = std::sqrt(3.0 + std::pow(2.0, 1.5));  // sqrt(3 + 2√2)
-    const double s32b = std::sqrt(3.0 - std::pow(2.0, 1.5));  // sqrt(3 - 2√2)
-
-for (keel::usize i = 0; i < numBands; ++i) {
-        const double cf = Fc[i];
-        const double ERB = cf / EarQ + minBW;
-        const double B = 1.019 * 2.0 * M_PI * ERB;
-
-        const double cosArg = 2.0 * cf * M_PI * T;
-        const double cosT = std::cos(cosArg);
-        const double sinT = std::sin(cosArg);
-        const double expBT = std::exp(B * T);
-        const double expM2BT = std::exp(-2.0 * B * T);
-
-        const double A0 = T;
-        const double A11 = -(2.0 * T * cosT / expBT + 2.0 * s32a * T * sinT / expBT) * 0.5;
-        const double A12 = -(2.0 * T * cosT / expBT - 2.0 * s32a * T * sinT / expBT) * 0.5;
-        const double A13 = -(2.0 * T * cosT / expBT + 2.0 * s32b * T * sinT / expBT) * 0.5;
-        const double A14 = -(2.0 * T * cosT / expBT - 2.0 * s32b * T * sinT / expBT) * 0.5;
-        const double A2 = 0.0;
-        const double B0 = 1.0;
-        const double B1 = -2.0 * cosT / expBT;
-        const double B2 = expM2BT;
-
-        // Compute gain (Slaney equation 4.6, complex):
-        //   exp4j = exp(4·j·π·cf·T) = exp(2j·cosArg)
-        //   exp_BT_2j = exp(-B·T + 2j·π·cf·T) = exp(-B·T) · exp(j·cosArg)
-        //   common term: -2·exp4j·T + 2·exp_BT_2j·T·(cos ± sX·sin)
-        //   gain = abs(prod_4_terms / denom^4)
-        const keel::c64 j(0.0, 1.0);
-        const keel::c64 exp4j  = keel::exp(2.0 * j * cosArg);
-        const keel::c64 exp_2j = keel::exp(j * cosArg) / expBT;  // exp(-B T + j cosArg)
-        const keel::c64 term1 = -2.0 * exp4j * T + 2.0 * exp_2j * T * (cosT - s32b * sinT);
-        const keel::c64 term2 = -2.0 * exp4j * T + 2.0 * exp_2j * T * (cosT + s32b * sinT);
-        const keel::c64 term3 = -2.0 * exp4j * T + 2.0 * exp_2j * T * (cosT - s32a * sinT);
-        const keel::c64 term4 = -2.0 * exp4j * T + 2.0 * exp_2j * T * (cosT + s32a * sinT);
-        const keel::c64 denomSimple = -2.0 / std::exp(2.0 * B * T) - 2.0 * exp4j
-                                + 2.0 * (1.0 + exp4j) / expBT;
-        const keel::c64 denom4 = keel::pow(denomSimple, 4);
-        const double gain = keel::abs((term1 * term2 * term3 * term4) / denom4);
-
-        // Section coefficients: [b0, b1, b2, a0, a1, a2]
-        // sec1 numerator divided by gain.
-        const double b0_1 = A0 / gain, b1_1 = A11 / gain, b2_1 = A2 / gain;
-        const double b0_2 = A0,        b1_2 = A12,        b2_2 = A2;
-        const double b0_3 = A0,        b1_3 = A13,        b2_3 = A2;
-        const double b0_4 = A0,        b1_4 = A14,        b2_4 = A2;
-        // Common denom for all 4 sections: [B0, B1, B2]
-
-        // Compute |H(ω_k)| for k = 0..H-1.
-        double *bankRow = bank + i * H;  // row i, H columns (column-major over H)
-        for (keel::usize k = 0; k < H; ++k) {
-            const double w = -2.0 * M_PI * static_cast<double>(k) / static_cast<double>(NFFT);
-            const keel::c64 zinv  = keel::exp(j * w);
-            const keel::c64 zinv2 = zinv * zinv;
-            // Same denom for all 4 sections.
-            const keel::c64 den = B0 + B1 * zinv + B2 * zinv2;
-            const keel::c64 num1 = b0_1 + b1_1 * zinv + b2_1 * zinv2;
-            const keel::c64 num2 = b0_2 + b1_2 * zinv + b2_2 * zinv2;
-            const keel::c64 num3 = b0_3 + b1_3 * zinv + b2_3 * zinv2;
-            const keel::c64 num4 = b0_4 + b1_4 * zinv + b2_4 * zinv2;
-            const keel::c64 Htot = (num1 * num2 * num3 * num4) / (den * den * den * den);
-            bankRow[k] = keel::abs(Htot);
-        }
-    }
+    return keel::audio::CepstralRectification::kLog;
 }
 
 void cepstralCoefficients_argcheck(const Value &S, int numCoeffs, CepstralRect rect)
@@ -299,12 +82,6 @@ void gtcc_argcheck(const Value &x, double fs, int numCoeffs)
 
 } // anon
 
-// ── cepstralCoefficients ──────────────────────────────────────────────
-// S: spectrogram, one spectrum per column (2-D: L×M → M×NumCoeffs) or a
-// higher-dimensional stack (N-D: the DCT runs along dim 1 per trailing
-// index, output (d2, NumCoeffs, d3, ...)). Probed R2025b contract:
-// double/single real, nonnegative unless Rectification='none'; zero bins
-// clamp to realmin before log10 (not -Inf); NumCoeffs defaults to 13.
 Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
                            keel::Allocator *mr)
 {
@@ -315,7 +92,6 @@ Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
     const keel::usize L = d.dim(0);
     const keel::usize K = static_cast<keel::usize>(numCoeffs);
 
-    // Output dims: (d2, K, d3, ...).
     keel::Array<keel::usize> od;
     od.push_back(d.dim(1));
     od.push_back(K);
@@ -328,321 +104,113 @@ Value cepstralCoefficients(const Value &S, int numCoeffs, CepstralRect rect,
         out = Value::matrixND(od.data(), static_cast<int>(od.size()),
                               wantSingle ? ValueType::SINGLE
                                          : ValueType::DOUBLE, mr);
-    const keel::usize d1 = d.dim(1);                    // frames per page
-    if (L == 0 || d1 == 0 || S.numel() == 0) return out;
+    const keel::usize pageFrames = d.dim(1);
+    if (L == 0 || pageFrames == 0 || S.numel() == 0) return out;
 
-    // Column-major (L, d1, d2, …): the L values of trailing frame j are
-    // CONTIGUOUS at j*L + l (dim 1 is the fast axis).
-    const double logFloor = std::log10(std::numeric_limits<double>::min());
-    auto rectify = [&](double v) -> double {
-        switch (rect) {
-            case CepstralRect::Log: {
-                double r = (v > 0.0) ? std::log10(v) : logFloor;
-                return r < logFloor ? logFloor : r;
-            }
-            case CepstralRect::CubicRoot:
-                return std::cbrt(v);
-            case CepstralRect::None:
-                return v;
-        }
-        return v;
-    };
-
-    // DCT basis K × L over the dim-1 axis (values verified vs R2025b).
-    keel::ArenaTemp scratch = keel::get_scratch(mr);
-    keel::Array<double> D(K * L, scratch.allocator());
-    {
-        const double A = std::sqrt(1.0 / static_cast<double>(L));
-        const double B = std::sqrt(2.0 / static_cast<double>(L));
-        for (keel::usize l = 0; l < L; ++l) D[0 + l * K] = A;
-        for (keel::usize l = 0; l < L; ++l) {
-            const double lc = static_cast<double>(l) + 0.5;
-            for (keel::usize n = 1; n < K; ++n)
-                D[n + l * K] = B * std::cos(M_PI * static_cast<double>(n)
-                                            * lc / static_cast<double>(L));
-        }
-    }
-
-    // Rectify once into a flat buffer, then run the DCT per trailing
-    // frame. Single input computes in single — the reference rounds the
-    // rectification and the accumulation the same way.
-    double *od_d = wantSingle ? nullptr : out.doubleDataMut();
-    float *od_f = wantSingle ? out.singleDataMut() : nullptr;
-    keel::Array<double> rectD(scratch.allocator());
-    keel::Array<float> rectF(scratch.allocator());
-    if (wantSingle) {
-        rectF.resize(S.numel());
-        for (keel::usize i = 0; i < S.numel(); ++i)
-            rectF[i] = static_cast<float>(rectify(S.elemAsDouble(i)));
-    } else {
-        rectD.resize(S.numel());
-        for (keel::usize i = 0; i < S.numel(); ++i)
-            rectD[i] = rectify(S.elemAsDouble(i));
-    }
-    // Page blocks over dims[2..]: each holds d1 frames.
-    const keel::usize pageFrames = d1;
     const keel::usize numPages = S.numel() / (L * pageFrames);
-    for (keel::usize pg = 0; pg < numPages; ++pg) {
-        const keel::usize pgBase = pg * pageFrames;      // frame base in S
-        const keel::usize outPg = pg * pageFrames * K;   // base in out
-        for (keel::usize a = 0; a < pageFrames; ++a) {
-            const keel::usize sBase = (pgBase + a) * L;  // frame's L values
-            for (keel::usize k = 0; k < K; ++k) {
-                const keel::usize oi = outPg + a + k * pageFrames;
-                if (od_f) {
-                    float acc = 0.0f;
-                    for (keel::usize l = 0; l < L; ++l)
-                        acc += static_cast<float>(D[k + l * K])
-                               * rectF[sBase + l];
-                    od_f[oi] = acc;
-                } else {
-                    double acc = 0.0;
-                    for (keel::usize l = 0; l < L; ++l)
-                        acc += D[k + l * K] * rectD[sBase + l];
-                    od_d[oi] = acc;
-                }
-            }
+    const keel::usize pageIn = L * pageFrames;
+    const keel::usize pageOut = pageFrames * K;
+    const auto kRect = toKeelRect(rect);
+
+    if (wantSingle) {
+        const float *sd = S.singleData();
+        float *od_f = out.singleDataMut();
+        for (keel::usize pg = 0; pg < numPages; ++pg) {
+            (void)keel::audio::cepstral_coefficients_f32(
+                keel::ArrayRef<float>(sd + pg * pageIn, pageIn),
+                L, pageFrames, K,
+                keel::MutArrayRef<float>(od_f + pg * pageOut, pageOut),
+                kRect, mr);
+        }
+    } else {
+        const double *sd = S.doubleData();
+        double *od_d = out.doubleDataMut();
+        for (keel::usize pg = 0; pg < numPages; ++pg) {
+            (void)keel::audio::cepstral_coefficients(
+                keel::ArrayRef<double>(sd + pg * pageIn, pageIn),
+                L, pageFrames, K,
+                keel::MutArrayRef<double>(od_d + pg * pageOut, pageOut),
+                kRect, mr);
         }
     }
     return out;
 }
 
-// ── mfcc ──────────────────────────────────────────────────────────────
-// Standard MFCC pipeline (Davis & Mermelstein 1980). Steps:
-//   1. Buffer x into winLen × numFrames frames (winLen=round(0.03*fs),
-//      hop=winLen-round(0.02*fs)).
-//   2. Per-frame logE = log(sum(frame^2)) (natural log, UNWINDOWED).
-//   3. Apply hamming(winLen,'periodic'); compute |FFT|; one-sided half.
-//   4. Slaney mel filterbank with 'Bandwidth' normalization (40 bands at
-//      default 42 Slaney edges).
-//   5. cepstralCoefficients (log10 + DCT-II unitary, NumCoeffs=13).
-//   6. Prepend logE column → numFrames × (NumCoeffs+1).
 std::tuple<Value, Value, Value>
 mfcc(const Value &x, double fs, int numCoeffs, keel::Allocator *mr)
 {
     mfcc_argcheck(x, fs, numCoeffs);
     const keel::usize N = x.numel();
-    const keel::usize winLen  = static_cast<keel::usize>(std::round(fs * 0.03));
-    const keel::usize overlap = static_cast<keel::usize>(std::round(fs * 0.02));
-    const keel::usize hop = (winLen > overlap) ? (winLen - overlap) : 1;
-    const keel::usize fftLen = winLen;
-    const keel::usize H = fftLen / 2 + 1;
-    const keel::usize numFrames = (N >= winLen) ? ((N - winLen) / hop + 1) : 0;
+    const keel::usize numFrames = keel::audio::audio_frame_count(N, fs, 0.03, 0.02);
     const keel::usize NC = static_cast<keel::usize>(numCoeffs);
 
-    // Slaney edges → 42 entries → numBands = 40 (validNumBands depends on fs).
-    constexpr keel::usize numEdges = 42;
-
-    // Output: numFrames × (NumCoeffs+1)  with LogEnergy='append'.
     Value out = Value::matrix(numFrames, numFrames == 0 ? 0 : (NC + 1),
                               ValueType::DOUBLE, mr);
     Value zero = Value::matrix(0, 0, ValueType::DOUBLE, mr);
-    if (numFrames == 0 || winLen == 0)
+    if (numFrames == 0)
         return {out, zero, zero};
 
+    Value delta      = Value::matrix(numFrames, NC + 1, ValueType::DOUBLE, mr);
+    Value deltaDelta = Value::matrix(numFrames, NC + 1, ValueType::DOUBLE, mr);
+
     keel::ArenaTemp scratch = keel::get_scratch(mr);
-
-    // Window
-    keel::Array<double> win(winLen, scratch.allocator());
-    hammingPeriodic(win.data(), winLen);
-
-    // Slaney edges + filter bank (H × numBands)
-    keel::Array<double> edges(numEdges, scratch.allocator());
-    slaneyBandEdges(edges.data(), numEdges);
-    const keel::usize numBands = numEdges - 2;
-    keel::Array<double> FB(H * numBands, scratch.allocator());
-    designMelFilterBankSlaney(FB.data(), fs, fftLen, edges.data(), numEdges, H);
-
-    // Per-frame buffers
-    keel::Array<double> frame(winLen, scratch.allocator());
-    keel::Array<double> mag(H, scratch.allocator());
-    keel::Array<double> melMag(numBands * numFrames, scratch.allocator());
-    keel::Array<double> logE(numFrames, scratch.allocator());
-
-    for (keel::usize f = 0; f < numFrames; ++f) {
-        const keel::usize start = f * hop;
-        // Energy on the UNWINDOWED frame (standard MFCC log-energy term).
-        double E = 0.0;
-        for (keel::usize i = 0; i < winLen; ++i) {
-            const double xi = x.elemAsDouble(start + i);
-            E += xi * xi;
-        }
-        if (E == 0.0) E = std::numeric_limits<double>::min();
-        logE[f] = std::log(E);  // natural log
-
-        // Window then FFT magnitude
-        for (keel::usize i = 0; i < winLen; ++i)
-            frame[i] = x.elemAsDouble(start + i) * win[i];
-        detail::fftMagHalf(mr, frame.data(), fftLen, mag.data());
-
-        // Apply filterbank: melMag(b, f) = Σ_j FB(j, b) * mag(j)
-        for (keel::usize b = 0; b < numBands; ++b) {
-            double s = 0.0;
-            for (keel::usize j = 0; j < H; ++j) s += FB[j + b * H] * mag[j];
-            melMag[b + f * numBands] = s;
-        }
+    keel::Array<double> xBuf(scratch.allocator());
+    keel::ArrayRef<double> xRef;
+    if (x.type() == ValueType::DOUBLE) {
+        xRef = keel::ArrayRef<double>(x.doubleData(), N);
+    } else {
+        xBuf.resize(N);
+        for (keel::usize i = 0; i < N; ++i) xBuf[i] = x.elemAsDouble(i);
+        xRef = xBuf;
     }
 
-    // Wrap melMag into a Value for cepstralCoefficients.
-    Value melMagV = Value::matrix(numBands, numFrames, ValueType::DOUBLE, mr);
-    {
-        double *md = melMagV.doubleDataMut();
-        std::copy(melMag.data(), melMag.data() + numBands * numFrames, md);
-    }
-    Value coeffs = cepstralCoefficients(melMagV, static_cast<int>(NC),
-                                        CepstralRect::Log, mr);
-
-    // Assemble out: [logE, coeffs] (numFrames × (NC+1)).
-    double *od = out.doubleDataMut();
-    const double *Cd = coeffs.doubleData();
-    for (keel::usize f = 0; f < numFrames; ++f) od[f] = logE[f];
-    for (keel::usize n = 0; n < NC; ++n)
-        for (keel::usize f = 0; f < numFrames; ++f)
-            od[f + (n + 1) * numFrames] = Cd[f + n * numFrames];
-
-    Value delta      = audioDelta(out, 9, mr);
-    Value deltaDelta = audioDelta(delta, 9, mr);
+    const keel::usize total = numFrames * (NC + 1);
+    (void)keel::audio::mfcc(
+        xRef, fs, NC,
+        keel::MutArrayRef<double>(out.doubleDataMut(), total),
+        keel::MutArrayRef<double>(delta.doubleDataMut(), total),
+        keel::MutArrayRef<double>(deltaDelta.doubleDataMut(), total),
+        mr);
     return {out, delta, deltaDelta};
 }
 
-// ── gtcc ──────────────────────────────────────────────────────────────
-// Same STFT pipeline as mfcc but with a Patterson-Holdsworth gammatone
-// filterbank in the frequency domain (Slaney 1993).
-// Pipeline:
-//   1. winLen=round(0.03*fs), overlap=round(0.02*fs), fftLen=winLen.
-//   2. Per-frame logE = log(sum(unwindowed_frame.^2)).
-//   3. hamming(winLen,'periodic'); Z = |FFT(frame .* win)|.
-//   4. Gammatone filterbank parameters:
-//        FrequencyScale='erb', FrequencyRange=[50, fs/2],
-//        OneSided=false, Normalization='Bandwidth'.
-//      NumFilters = ceil(hz2erb(fs/2) - hz2erb(50)).
-//      Fc = erb2hz(linspace(lowERB, highERB, NumFilters)).
-//      Filter shape per band: cascade of 4 biquads
-//      (Slaney 1993 — eq. 4.6).
-//      H[k] = freqz(coeffs, NFFT, 'whole') magnitude.
-//      BW[i] = 1.019 · 24.7 · (0.00437·Fc[i] + 1).
-//      Bandwidth norm: H[i,k] /= BW[i]/2.
-//   5. melMag[i, frame] = filterBank * Z (full two-sided sum).
-//      We compute one-sided H (real coeffs → conjugate symmetric)
-//      and double the inner-half bins for equivalent sum.
-//   6. cepstralCoefficients (log10 + DCT-II unitary).
-//   7. Prepend logE column → numFrames × (NumCoeffs+1).
 std::tuple<Value, Value, Value>
 gtcc(const Value &x, double fs, int numCoeffs, keel::Allocator *mr)
 {
     gtcc_argcheck(x, fs, numCoeffs);
     const keel::usize N = x.numel();
-    const keel::usize winLen  = static_cast<keel::usize>(std::round(fs * 0.03));
-    const keel::usize overlap = static_cast<keel::usize>(std::round(fs * 0.02));
-    const keel::usize hop = (winLen > overlap) ? (winLen - overlap) : 1;
-    const keel::usize fftLen = winLen;
-    const keel::usize H = fftLen / 2 + 1;
-    const keel::usize numFrames = (N >= winLen) ? ((N - winLen) / hop + 1) : 0;
+    const keel::usize numFrames = keel::audio::audio_frame_count(N, fs, 0.03, 0.02);
     const keel::usize NC = static_cast<keel::usize>(numCoeffs);
-
-    // ERB-spaced Fc from FrequencyRange=[50, fs/2].
-    const double fLow = 50.0;
-    const double fHigh = fs * 0.5;
-    const double lowERB = hz2erbVal(fLow);
-    const double highERB = hz2erbVal(fHigh);
-    const keel::usize numBands = static_cast<keel::usize>(std::ceil(highERB - lowERB));
+    const double diffErb = std::ceil(keel::audio::hz_to_erb(fs * 0.5) - keel::audio::hz_to_erb(50.0));
+    const keel::usize numBands = (diffErb > 0.0) ? static_cast<keel::usize>(diffErb) : 0;
 
     Value out = Value::matrix(numFrames, numFrames == 0 ? 0 : (NC + 1),
                               ValueType::DOUBLE, mr);
     Value zero = Value::matrix(0, 0, ValueType::DOUBLE, mr);
-    if (numFrames == 0 || winLen == 0 || numBands == 0)
+    if (numFrames == 0 || numBands == 0)
         return {out, zero, zero};
 
+    Value delta      = Value::matrix(numFrames, NC + 1, ValueType::DOUBLE, mr);
+    Value deltaDelta = Value::matrix(numFrames, NC + 1, ValueType::DOUBLE, mr);
+
     keel::ArenaTemp scratch = keel::get_scratch(mr);
-
-    // Window
-    keel::Array<double> win(winLen, scratch.allocator());
-    hammingPeriodic(win.data(), winLen);
-
-    // Fc = erb2hz(linspace(lowERB, highERB, numBands))
-    keel::Array<double> Fc(numBands, scratch.allocator());
-    if (numBands == 1) {
-        Fc[0] = erb2hzVal(lowERB);
+    keel::Array<double> xBuf(scratch.allocator());
+    keel::ArrayRef<double> xRef;
+    if (x.type() == ValueType::DOUBLE) {
+        xRef = keel::ArrayRef<double>(x.doubleData(), N);
     } else {
-        const double step = (highERB - lowERB) / static_cast<double>(numBands - 1);
-        for (keel::usize i = 0; i < numBands; ++i)
-            Fc[i] = erb2hzVal(lowERB + step * static_cast<double>(i));
+        xBuf.resize(N);
+        for (keel::usize i = 0; i < N; ++i) xBuf[i] = x.elemAsDouble(i);
+        xRef = xBuf;
     }
 
-    // Gammatone filterbank one-sided (numBands × H).
-    keel::Array<double> bank(numBands * H, scratch.allocator());
-    computeGammatoneFreqRespOneSided(fs, Fc.data(), numBands, fftLen, H, bank.data());
-
-    // Bandwidth normalization: BW[i] = 1.019 * 24.7 * (0.00437 * Fc[i] + 1).
-    // Then bank[i, k] /= BW[i]/2.
-    keel::Array<double> BW(numBands, scratch.allocator());
-    for (keel::usize i = 0; i < numBands; ++i) {
-        BW[i] = 1.019 * 24.7 * (0.00437 * Fc[i] + 1.0);
-        const double inv = (BW[i] > 0.0) ? 2.0 / BW[i] : 0.0;
-        for (keel::usize k = 0; k < H; ++k) bank[i * H + k] *= inv;
-    }
-
-    // Per-frame buffers
-    keel::Array<double> frame(winLen, scratch.allocator());
-    keel::Array<double> mag(H, scratch.allocator());
-    keel::Array<double> melMag(numBands * numFrames, scratch.allocator());
-    keel::Array<double> logE(numFrames, scratch.allocator());
-
-    for (keel::usize f = 0; f < numFrames; ++f) {
-        const keel::usize start = f * hop;
-        // Energy on UNWINDOWED frame.
-        double E = 0.0;
-        for (keel::usize i = 0; i < winLen; ++i) {
-            const double xi = x.elemAsDouble(start + i);
-            E += xi * xi;
-        }
-        if (E == 0.0) E = std::numeric_limits<double>::min();
-        logE[f] = std::log(E);
-
-        // Window then FFT magnitude
-        for (keel::usize i = 0; i < winLen; ++i)
-            frame[i] = x.elemAsDouble(start + i) * win[i];
-        detail::fftMagHalf(mr, frame.data(), fftLen, mag.data());
-
-        // Apply two-sided gammatone bank: equivalent sum via one-sided
-        // with bins 1..H-2 doubled (k=0 DC, k=H-1 Nyquist single-counted).
-        // For odd NFFT, k=H-1 is NOT Nyquist — also double it.
-        const bool nyquistSingle = ((fftLen % 2) == 0);
-        for (keel::usize b = 0; b < numBands; ++b) {
-            double s = 0.0;
-            // k=0 (DC): single
-            s += bank[b * H + 0] * mag[0];
-            // k=1..H-2: doubled
-            for (keel::usize k = 1; k + 1 < H; ++k)
-                s += 2.0 * bank[b * H + k] * mag[k];
-            // k=H-1: Nyquist iff fftLen even
-            if (H >= 1) {
-                const double last = bank[b * H + (H - 1)] * mag[H - 1];
-                s += nyquistSingle ? last : 2.0 * last;
-            }
-            melMag[b + f * numBands] = s;
-        }
-    }
-
-    // Wrap melMag → cepstralCoefficients
-    Value melMagV = Value::matrix(numBands, numFrames, ValueType::DOUBLE, mr);
-    {
-        double *md = melMagV.doubleDataMut();
-        std::copy(melMag.data(), melMag.data() + numBands * numFrames, md);
-    }
-    Value coeffs = cepstralCoefficients(melMagV, static_cast<int>(NC),
-                                        CepstralRect::Log, mr);
-
-    // Assemble out: [logE, coeffs] (numFrames × (NC+1)).
-    double *od = out.doubleDataMut();
-    const double *Cd = coeffs.doubleData();
-    for (keel::usize f = 0; f < numFrames; ++f) od[f] = logE[f];
-    for (keel::usize n = 0; n < NC; ++n)
-        for (keel::usize f = 0; f < numFrames; ++f)
-            od[f + (n + 1) * numFrames] = Cd[f + n * numFrames];
-
-    Value delta      = audioDelta(out, 9, mr);
-    Value deltaDelta = audioDelta(delta, 9, mr);
+    const keel::usize total = numFrames * (NC + 1);
+    (void)keel::audio::gtcc(
+        xRef, fs, NC,
+        keel::MutArrayRef<double>(out.doubleDataMut(), total),
+        keel::MutArrayRef<double>(delta.doubleDataMut(), total),
+        keel::MutArrayRef<double>(deltaDelta.doubleDataMut(), total),
+        mr);
     return {out, delta, deltaDelta};
 }
 

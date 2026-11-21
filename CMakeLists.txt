@@ -140,6 +140,8 @@ endif()
 # Dependency: keelcpp/audiofile & keelcpp/audio (strictly PRIVATE to numkit_audio_core)
 foreach(_keel_pair
     "KEEL:keel"
+    "KEEL_INTERP:interp"
+    "KEEL_FFT:fft"
     "KEEL_AUDIOFILE:audiofile"
     "KEEL_AUDIO:audio"
 )
@@ -200,7 +202,7 @@ if(NOT TARGET keel::audio)
     FetchContent_Declare(
         keel_audio
         GIT_REPOSITORY https://github.com/keelcpp/audio.git
-        GIT_TAG        399d2ef510b56e2a1a72e4eeb77eaeec109c19b0
+        GIT_TAG        f843c4548e8ba14e5c1b086986182490d58e3f4e
     )
     FetchContent_MakeAvailable(keel_audio)
 endif()
