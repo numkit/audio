@@ -45,7 +45,7 @@ keel::String extensionFromPath(keel::StringRef path) {
     auto dot = path.rfind('.');
     if (dot == keel::kInvalidIndex) return keel::String{};
     keel::String ext = keel::String::from(path.substr(dot + 1));
-    for (char &c : ext) c = keel::to_ascii_lower(c);
+    ext.to_ascii_lower_in_place();
     return ext;
 }
 
@@ -607,7 +607,7 @@ keel::Array<keel::u8> audiowriteToBytes(const Value &y, keel::f64 sampleRate,
                                         keel::StringRef artist,
                                         keel::StringRef comment) {
     keel::String fmt = keel::String::from(format);
-    for (char &c : fmt) c = keel::to_ascii_lower(c);
+    fmt.to_ascii_lower_in_place();
     audiowrite_argcheck(fmt.as_ref(), format);
 
     if (fmt == "wav" || fmt == "wave") {

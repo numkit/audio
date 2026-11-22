@@ -38,8 +38,7 @@ void cepstralCoefficients_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*
                         0, 0, "cepstralCoefficients", "",
                         "numkit:cepstralCoefficients:nargin");
         keel::String name = args[i].toString();
-        for (auto &c : name)
-            c = keel::to_ascii_lower(c);
+        name.to_ascii_lower_in_place();
         if (name == "numcoeffs" || name == "num") {
             nc = argcheck::expectedPositiveInteger(
                 argcheck::expectedReal(args[i + 1], i + 2, "NumCoeffs",
@@ -47,8 +46,7 @@ void cepstralCoefficients_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*
                 i + 2, "NumCoeffs", "cepstralCoefficients");
         } else if (name == "rectification" || name == "rect") {
             keel::String val = args[i + 1].toString();
-            for (auto &c : val)
-                c = keel::to_ascii_lower(c);
+            val.to_ascii_lower_in_place();
             if (val == "log") rect = CepstralRect::Log;
             else if (val == "cubic-root") rect = CepstralRect::CubicRoot;
             else if (val == "none") rect = CepstralRect::None;
