@@ -2,6 +2,7 @@
 // Pitch (NCF, CEP, PEF, LHS, SRH) and harmonicRatio, delegated to keel::audio.
 
 #include <keel/arena.h>
+#include <keel/math.h>
 #include <keel/array.h>
 #include <keel/audio.h>
 #include <keel/core.h>
@@ -11,7 +12,6 @@
 #include <numkit/value/error.hpp>
 #include <numkit/value/value.hpp>
 
-#include <cmath>
 
 namespace numkit::audio {
 
@@ -20,10 +20,10 @@ namespace {
 void pitch_argcheck(const Value &x, keel::f64 fs, keel::f64 minF, keel::f64 maxF)
 {
     (void)x;
-    if (!(fs > 0.0) || !std::isfinite(fs))
+    if (!(fs > 0.0) || !keel::is_finite(fs))
         throw Error("pitch: fs must be a finite positive scalar",
                     0, 0, "pitch", "", "numkit:pitch:expectedPositive");
-    if (!(minF > 0.0 && maxF > minF && std::isfinite(minF) && std::isfinite(maxF)))
+    if (!(minF > 0.0 && maxF > minF && keel::is_finite(minF) && keel::is_finite(maxF)))
         throw Error("pitch: Range must satisfy 0 < Range(1) < Range(2)",
                     0, 0, "pitch", "", "numkit:pitch:BadRange");
 }
@@ -31,7 +31,7 @@ void pitch_argcheck(const Value &x, keel::f64 fs, keel::f64 minF, keel::f64 maxF
 void harmonicRatio_argcheck(const Value &x, keel::f64 fs)
 {
     (void)x;
-    if (!(fs > 0.0) || !std::isfinite(fs))
+    if (!(fs > 0.0) || !keel::is_finite(fs))
         throw Error("harmonicRatio: fs must be a finite positive scalar",
                     0, 0, "harmonicRatio", "", "numkit:harmonicRatio:expectedPositive");
 }

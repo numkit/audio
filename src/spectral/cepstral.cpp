@@ -2,6 +2,7 @@
 // Cepstral coefficients (cepstralCoefficients / mfcc / gtcc), delegated to keel::audio.
 
 #include <keel/arena.h>
+#include <keel/math.h>
 #include <keel/array.h>
 #include <keel/audio.h>
 #include <keel/core.h>
@@ -12,7 +13,6 @@
 #include <numkit/value/error.hpp>
 #include <numkit/value/value.hpp>
 
-#include <cmath>
 
 namespace numkit::audio {
 
@@ -59,7 +59,7 @@ void cepstralCoefficients_argcheck(const Value &S, keel::i32 numCoeffs, Cepstral
 void mfcc_argcheck(const Value &x, keel::f64 fs, keel::i32 numCoeffs)
 {
     (void)x;
-    if (!(fs > 0.0) || !std::isfinite(fs))
+    if (!(fs > 0.0) || !keel::is_finite(fs))
         throw Error("mfcc: fs must be a finite positive scalar",
                     0, 0, "mfcc", "", "numkit:mfcc:expectedPositive");
     if (numCoeffs <= 1)
@@ -71,7 +71,7 @@ void mfcc_argcheck(const Value &x, keel::f64 fs, keel::i32 numCoeffs)
 void gtcc_argcheck(const Value &x, keel::f64 fs, keel::i32 numCoeffs)
 {
     (void)x;
-    if (!(fs > 0.0) || !std::isfinite(fs))
+    if (!(fs > 0.0) || !keel::is_finite(fs))
         throw Error("gtcc: fs must be a finite positive scalar",
                     0, 0, "gtcc", "", "numkit:gtcc:expectedPositive");
     if (numCoeffs <= 1)
@@ -181,7 +181,7 @@ gtcc(const Value &x, keel::f64 fs, keel::i32 numCoeffs, keel::Allocator *mr)
     const keel::usize N = x.numel();
     const keel::usize numFrames = keel::audio::audio_frame_count(N, fs, 0.03, 0.02);
     const keel::usize NC = keel::as<keel::usize>(numCoeffs);
-    const keel::f64 diffErb = std::ceil(keel::audio::hz_to_erb(fs * 0.5) - keel::audio::hz_to_erb(50.0));
+    const keel::f64 diffErb = keel::ceil(keel::audio::hz_to_erb(fs * 0.5) - keel::audio::hz_to_erb(50.0));
     const keel::usize numBands = (diffErb > 0.0) ? keel::as<keel::usize>(diffErb) : 0;
 
     Value out = Value::matrix(numFrames, numFrames == 0 ? 0 : (NC + 1),

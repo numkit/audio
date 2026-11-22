@@ -3,6 +3,7 @@
 // Audio Cycle C — melSpectrogram + audioDelta, delegated to keel::audio.
 
 #include <keel/core.h>
+#include <keel/math.h>
 #include <keel/memory.h>
 #include <keel/arena.h>
 #include <keel/array.h>
@@ -17,7 +18,6 @@
 #include "fft_one_sided.hpp"
 
 #include <algorithm>
-#include <cmath>
 
 namespace numkit::audio {
 
@@ -26,7 +26,7 @@ namespace {
 void melSpectrogram_argcheck(const Value &x, keel::f64 fs, keel::i32 numBands)
 {
     (void)x;
-    if (!(fs > 0.0) || !std::isfinite(fs))
+    if (!(fs > 0.0) || !keel::is_finite(fs))
         throw Error("melSpectrogram: fs must be a finite positive scalar",
                     0, 0, "melSpectrogram", "", "numkit:melSpectrogram:expectedPositive");
     if (numBands < 1)
@@ -59,8 +59,8 @@ melSpectrogram(const Value &x, keel::f64 fs, keel::i32 numBands,
 {
     melSpectrogram_argcheck(x, fs, numBands);
     const keel::usize N = x.numel();
-    const keel::usize winLen  = keel::as<keel::usize>(std::round(fs * 0.03));
-    const keel::usize overlap = keel::as<keel::usize>(std::round(fs * 0.02));
+    const keel::usize winLen  = keel::as<keel::usize>(keel::round(fs * 0.03));
+    const keel::usize overlap = keel::as<keel::usize>(keel::round(fs * 0.02));
     const keel::usize hop = winLen - overlap;
     const keel::usize fftLen = winLen;
     const keel::usize H = fftLen / 2 + 1;
@@ -80,7 +80,7 @@ melSpectrogram(const Value &x, keel::f64 fs, keel::i32 numBands,
     // WindowNormalization (power form): win /= sqrt(0.5 * sum(win)^2)
     keel::f64 sumW = 0.0;
     for (keel::usize i = 0; i < winLen; ++i) sumW += win[i];
-    const keel::f64 scale = std::sqrt(0.5 * sumW * sumW);
+    const keel::f64 scale = keel::sqrt(0.5 * sumW * sumW);
     if (scale > 0.0)
         for (keel::usize i = 0; i < winLen; ++i) win[i] /= scale;
 

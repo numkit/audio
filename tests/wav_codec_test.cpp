@@ -1,5 +1,6 @@
 // toolboxes/audio/tests/wav_codec_test.cpp
 #include <keel/core.h>
+#include <keel/math.h>
 #include <gtest/gtest.h>
 #include "../src/io/wav_codec.hpp"
 #include <cmath>
@@ -24,8 +25,8 @@ TEST(WavCodecTest, Pcm16MonoAndStereoRoundTrip) {
     Value y = Value::matrix(N, 2, ValueType::DOUBLE);
     double *p = y.doubleDataMut();
     for (keel::usize i = 0; i < N; ++i) {
-        p[0 * N + i] = 0.8 * std::sin(2.0 * 3.1415926535 * 440.0 * i / Fs);
-        p[1 * N + i] = 0.5 * std::sin(2.0 * 3.1415926535 * 880.0 * i / Fs);
+        p[0 * N + i] = 0.8 * keel::sin(2.0 * 3.1415926535 * 440.0 * i / Fs);
+        p[1 * N + i] = 0.5 * keel::sin(2.0 * 3.1415926535 * 880.0 * i / Fs);
     }
 
     auto bytes = writeWavToBytes(y, Fs, 16, "Sine Test", "NK", "Unit Test");

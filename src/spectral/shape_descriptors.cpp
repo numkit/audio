@@ -37,7 +37,6 @@
 #include "fft_one_sided.hpp"
 
 #include <algorithm>
-#include <cmath>
 #include <cstdint>
 
 
@@ -106,7 +105,7 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
     keel::Array<keel::f64> win;
     keel::usize winLen;
     if (!haveWin) {
-        const keel::f64 wNatural = std::round(fs * 0.03);
+        const keel::f64 wNatural = keel::round(fs * 0.03);
         if (wNatural > 120.0) {
             if (wNatural > keel::as<keel::f64>(xLen))
                 throw Error(keel::format("{}: the default window length round(0.03·f) = {} exceeds the signal length {}.",
@@ -123,7 +122,7 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
             // (window − ovl) tile the signal exactly.
             const keel::f64 ov0 = opts.OverlapLength.elemAsDouble(0);
             winLen = keel::as<keel::usize>(
-                std::floor((keel::as<keel::f64>(xLen) + 7.0 * ov0) / 8.0));
+                keel::floor((keel::as<keel::f64>(xLen) + 7.0 * ov0) / 8.0));
             win.assign(winLen, 1.0);
         }
     } else {
@@ -143,7 +142,7 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
                         keel::format("numkit:{}:expectedColumn", fn));
         const keel::usize wn = W.numel();
         for (keel::usize i = 0; i < wn; ++i)
-            if (!std::isfinite(W.elemAsDouble(i)))
+            if (!keel::is_finite(W.elemAsDouble(i)))
                 throw Error(keel::format("{}: input Window must be finite.", fn),
                             0, 0, fn, "",
                             keel::format("numkit:{}:expectedFinite", fn));
@@ -160,7 +159,7 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
     // ── overlap ──
     keel::usize overlap;
     if (!haveOvl) {
-        const keel::f64 oNat = std::round(fs * 0.02);
+        const keel::f64 oNat = keel::round(fs * 0.02);
         overlap = (oNat > 80.0) ? keel::as<keel::usize>(oNat)
                                 : winLen / 2;      // fix(0.5·windowLength)
     } else {
@@ -175,7 +174,7 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
                         0, 0, fn, "",
                         keel::format("numkit:{}:expectedScalar", fn));
         const keel::f64 v = O.elemAsDouble(0);
-        if (!(v == std::floor(v)))
+        if (!(v == keel::floor(v)))
             throw Error(keel::format("{}: input OverlapLength must be an integer.", fn),
                         0, 0, fn, "",
                         keel::format("numkit:{}:expectedInteger", fn));
@@ -204,7 +203,7 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
                         0, 0, fn, "",
                         keel::format("numkit:{}:expectedScalar", fn));
         const keel::f64 v = Nv.elemAsDouble(0);
-        if (!(v == std::floor(v)) || v <= 0.0)
+        if (!(v == keel::floor(v)) || v <= 0.0)
             throw Error(keel::format("{}: input FFTLength must be a positive integer.", fn),
                         0, 0, fn, "",
                         keel::format("numkit:{}:mustBePositive", fn));
@@ -222,7 +221,7 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
 
     // ── range ──
     keel::f64 rLo = 0.0, rHi;
-    if (fs > 1.0) rHi = std::floor(fs / 2.0); else rHi = fs / 2.0;
+    if (fs > 1.0) rHi = keel::floor(fs / 2.0); else rHi = fs / 2.0;
     if (!opts.Range.isEmpty()) {
         const Value &R = opts.Range;
         requireFloatClass(R, fn, "Range", 3);
@@ -236,7 +235,7 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
                         keel::format("numkit:{}:expectedRow", fn));
         rLo = R.elemAsDouble(0);
         rHi = R.elemAsDouble(1);
-        if (!std::isfinite(rLo) || !std::isfinite(rHi))
+        if (!keel::is_finite(rLo) || !keel::is_finite(rHi))
             throw Error(keel::format("{}: input Range must be finite.", fn),
                         0, 0, fn, "",
                         keel::format("numkit:{}:expectedFinite", fn));
@@ -261,9 +260,9 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
 
     // Selected bins (1-based in the reference; 0-based here after −1).
     const keel::usize binLow  = keel::as<keel::usize>(
-        std::ceil(rLo * keel::as<keel::f64>(nfft) / fs + 1.0));
+        keel::ceil(rLo * keel::as<keel::f64>(nfft) / fs + 1.0));
     const keel::usize binHigh = keel::as<keel::usize>(
-        std::floor(rHi * keel::as<keel::f64>(nfft) / fs + 1.0));
+        keel::floor(rHi * keel::as<keel::f64>(nfft) / fs + 1.0));
     const keel::usize M = (binHigh >= binLow) ? (binHigh - binLow + 1) : 0;
 
     Stft s;
@@ -302,7 +301,7 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
             keel::f64 *col = Xd + (c * numFrames + f) * M;
             for (keel::usize k = 0; k < M; ++k) {
                 const keel::f64 p = half[binLow - 1 + k];
-                col[k] = magnitude ? magScl * std::sqrt(p) : p * invPow;
+                col[k] = magnitude ? magScl * keel::sqrt(p) : p * invPow;
             }
             if (halveDc) col[0] *= 0.5;
             if (halveNyq && M > 0) col[M - 1] *= 0.5;
@@ -353,7 +352,7 @@ InputData prepareInput(keel::Allocator *mr,
                         0, 0, fn, "",
                         keel::format("numkit:{}:insufficientSignalLength", fn));
         for (keel::usize i = 0; i < x.numel(); ++i)
-            if (!std::isfinite(x.elemAsDouble(i)))
+            if (!keel::is_finite(x.elemAsDouble(i)))
                 throw Error(keel::format("{}: input 1 (x) must be finite.", fn),
                             0, 0, fn, "",
                             keel::format("numkit:{}:expectedFinite", fn));
@@ -603,7 +602,7 @@ void spectralFlux_argcheck(const Value &x, const Value &f, keel::f64 p,
             throw Error("spectralFlux: input 2 (f) must be nonnegative.",
                         0, 0, "spectralFlux", "",
                         "numkit:spectralFlux:mustBeNonnegative");
-        if (!std::isfinite(fv))
+        if (!keel::is_finite(fv))
             throw Error("spectralFlux: input 2 (f) must be finite.",
                         0, 0, "spectralFlux", "",
                         "numkit:spectralFlux:mustBeFinite");
@@ -679,9 +678,9 @@ Value spectralFluxFull(const Value &x, const Value &f, keel::f64 p,
                            - d.X.complexElem(prvBase + i))
                 : keel::abs(d.X.elemAsDouble(curBase + i)
                            - d.X.elemAsDouble(prvBase + i));
-            s += std::pow(diff, p);
+            s += keel::pow(diff, p);
         }
-        return std::pow(s, invP);
+        return keel::pow(s, invP);
     };
     auto readSpec = [&](keel::usize base) {
         return cx ? keel::abs(d.X.complexElem(base))
@@ -695,9 +694,9 @@ Value spectralFluxFull(const Value &x, const Value &f, keel::f64 p,
             for (keel::usize i = 0; i < M; ++i) {
                 const keel::f64 cur = readSpec(first + i);
                 const keel::f64 prv = initialCondition->elemAsDouble(c * M + i);
-                s += std::pow(keel::abs(cur - prv), p);
+                s += keel::pow(keel::abs(cur - prv), p);
             }
-            r0 = std::pow(s, invP);
+            r0 = keel::pow(s, invP);
         }
         if (of) of[c * F] = keel::as<keel::f32>(r0);
         else od[c * F] = r0;

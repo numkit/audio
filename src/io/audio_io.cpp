@@ -5,6 +5,7 @@
 // to keel::audiofile.
 
 #include <keel/array.h>
+#include <keel/math.h>
 #include <keel/core.h>
 #include <keel/format.h>
 #include <keel/fs.h>
@@ -29,8 +30,6 @@
 
 #include <keel/utf8.h>
 #include <algorithm>
-#include <cmath>
-#include <cstring>
 
 namespace numkit::audio {
 
@@ -101,7 +100,7 @@ keel::audiofile::AudioDecodeOptions makeDecodeOpts(keel::i64 startSample, keel::
     const keel::i64 s0 = (startSample < 1) ? 0 : (startSample - 1);
     opts.start_frame = keel::as<keel::u64>(s0);
     if (endSample < 0) {
-        opts.end_frame = ~keel::u64{0};
+        opts.end_frame = keel::Limits<keel::u64>::kMax;
     } else {
         const keel::u64 s1 = keel::as<keel::u64>(endSample);
         opts.end_frame = (s1 < opts.start_frame) ? opts.start_frame : s1;
@@ -131,14 +130,14 @@ AudioData bufferToAudioData(const keel::audiofile::AudioBuffer &buf, bool native
 
     if (!nativeType) {
         res.y = Value::matrix(frames, channels, ValueType::DOUBLE, mr);
-        std::memcpy(res.y.doubleDataMut(), buf.data.data(), frames * channels * sizeof(keel::f64));
+        keel::mem_copy(res.y.doubleDataMut(), buf.data.data(), frames * channels * sizeof(keel::f64));
         return res;
     }
 
     switch (buf.sample_type) {
         case keel::audiofile::AudioSampleType::U8:
             res.y = Value::matrix(frames, channels, ValueType::UINT8, mr);
-            std::memcpy(res.y.uint8DataMut(), buf.data.data(), frames * channels);
+            keel::mem_copy(res.y.uint8DataMut(), buf.data.data(), frames * channels);
             break;
         case keel::audiofile::AudioSampleType::I8:
             res.y = Value::matrix(frames, channels, ValueType::INT16, mr);
@@ -149,19 +148,19 @@ AudioData bufferToAudioData(const keel::audiofile::AudioBuffer &buf, bool native
             break;
         case keel::audiofile::AudioSampleType::I16:
             res.y = Value::matrix(frames, channels, ValueType::INT16, mr);
-            std::memcpy(res.y.int16DataMut(), buf.data.data(), frames * channels * sizeof(keel::i16));
+            keel::mem_copy(res.y.int16DataMut(), buf.data.data(), frames * channels * sizeof(keel::i16));
             break;
         case keel::audiofile::AudioSampleType::I32:
             res.y = Value::matrix(frames, channels, ValueType::INT32, mr);
-            std::memcpy(res.y.int32DataMut(), buf.data.data(), frames * channels * sizeof(keel::i32));
+            keel::mem_copy(res.y.int32DataMut(), buf.data.data(), frames * channels * sizeof(keel::i32));
             break;
         case keel::audiofile::AudioSampleType::F32:
             res.y = Value::matrix(frames, channels, ValueType::SINGLE, mr);
-            std::memcpy(res.y.singleDataMut(), buf.data.data(), frames * channels * sizeof(keel::f32));
+            keel::mem_copy(res.y.singleDataMut(), buf.data.data(), frames * channels * sizeof(keel::f32));
             break;
         case keel::audiofile::AudioSampleType::F64:
             res.y = Value::matrix(frames, channels, ValueType::DOUBLE, mr);
-            std::memcpy(res.y.doubleDataMut(), buf.data.data(), frames * channels * sizeof(keel::f64));
+            keel::mem_copy(res.y.doubleDataMut(), buf.data.data(), frames * channels * sizeof(keel::f64));
             break;
     }
     return res;
@@ -497,7 +496,7 @@ keel::Array<keel::u8> writeMidiToBytes(const Value &notesMatrix,
     if (ticksPerQuarterNote == 0 || (ticksPerQuarterNote & 0x8000u) != 0u) {
         ticksPerQuarterNote = 480;
     }
-    if (!std::isfinite(tempoBpm) || tempoBpm <= 0.0) {
+    if (!keel::is_finite(tempoBpm) || tempoBpm <= 0.0) {
         tempoBpm = 120.0;
     }
 

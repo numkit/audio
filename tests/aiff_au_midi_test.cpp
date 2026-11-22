@@ -1,5 +1,6 @@
 // toolboxes/audio/tests/aiff_au_midi_test.cpp
 #include <keel/core.h>
+#include <keel/math.h>
 #include <gtest/gtest.h>
 #include "../src/io/aiff_codec.hpp"
 #include "../src/io/au_codec.hpp"
@@ -17,8 +18,8 @@ TEST(AiffCodecTest, Pcm16And24RoundTrip) {
     Value y = Value::matrix(N, 2, ValueType::DOUBLE);
     double *p = y.doubleDataMut();
     for (keel::usize i = 0; i < N; ++i) {
-        p[0 * N + i] = 0.7 * std::sin(2.0 * 3.1415926535 * 300.0 * i / Fs);
-        p[1 * N + i] = 0.4 * std::sin(2.0 * 3.1415926535 * 600.0 * i / Fs);
+        p[0 * N + i] = 0.7 * keel::sin(2.0 * 3.1415926535 * 300.0 * i / Fs);
+        p[1 * N + i] = 0.4 * keel::sin(2.0 * 3.1415926535 * 600.0 * i / Fs);
     }
 
     auto bytes = writeAiffToBytes(y, Fs, 16, "Apple Sound", "Cupertino", "Stereo AIFF");
@@ -52,7 +53,7 @@ TEST(AuCodecTest, LinearPcmAndMuLawRoundTrip) {
     Value y = Value::matrix(N, 1, ValueType::DOUBLE);
     double *p = y.doubleDataMut();
     for (keel::usize i = 0; i < N; ++i) {
-        p[i] = 0.6 * std::sin(2.0 * 3.1415926535 * 1000.0 * i / Fs);
+        p[i] = 0.6 * keel::sin(2.0 * 3.1415926535 * 1000.0 * i / Fs);
     }
 
     // 16-bit PCM
