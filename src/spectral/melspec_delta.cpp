@@ -18,7 +18,6 @@
 
 #include "fft_one_sided.hpp"
 
-#include <algorithm>
 
 namespace numkit::audio {
 

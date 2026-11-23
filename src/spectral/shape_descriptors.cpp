@@ -36,7 +36,6 @@
 
 #include "fft_one_sided.hpp"
 
-#include <algorithm>
 
 
 namespace numkit::audio {
@@ -114,7 +113,7 @@ static Stft computeStft(keel::Allocator *mr, const Value &x,
             winLen = keel::as<keel::usize>(wNatural);
             win.assign(winLen, 1.0);
         } else if (!haveOvl) {
-            winLen = std::min<keel::usize>(64, xLen);
+            winLen = keel::min<keel::usize>(64, xLen);
             win.assign(winLen, 1.0);
         } else {
             // "8 segments" geometry: window sized so that 8 hops of
@@ -377,7 +376,7 @@ InputData prepareInput(keel::Allocator *mr,
         d.X = x;
         d.F = f;
         d.isTime = false;
-        d.numChan = std::max<keel::usize>(1, x.dims().pages());
+        d.numChan = keel::max<keel::usize>(1, x.dims().pages());
         d.numFrames = x.dims().cols();
     }
     return d;

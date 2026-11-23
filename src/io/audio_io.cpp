@@ -29,7 +29,6 @@
 #include "keel/midi.h"
 
 #include <keel/utf8.h>
-#include <algorithm>
 
 namespace numkit::audio {
 
@@ -504,23 +503,23 @@ keel::Array<keel::u8> writeMidiToBytes(const Value &notesMatrix,
     for (keel::usize i = 0; i < numNotes; ++i) {
         keel::i32 trk = 0;
         if (d.cols() >= 1) {
-            trk = std::max(0, keel::as<keel::i32>(notesMatrix.elemAsDouble(0 * numNotes + i)) - 1);
+            trk = keel::max(0, keel::as<keel::i32>(notesMatrix.elemAsDouble(0 * numNotes + i)) - 1);
         }
         keel::i32 ch = 0;
         if (d.cols() >= 2) {
-            ch = std::clamp(keel::as<keel::i32>(notesMatrix.elemAsDouble(1 * numNotes + i)) - 1, 0, 15);
+            ch = keel::clamp(keel::as<keel::i32>(notesMatrix.elemAsDouble(1 * numNotes + i)) - 1, 0, 15);
         }
         keel::i32 noteNum = 60;
         if (d.cols() >= 3) {
-            noteNum = std::clamp(keel::as<keel::i32>(notesMatrix.elemAsDouble(2 * numNotes + i)), 0, 127);
+            noteNum = keel::clamp(keel::as<keel::i32>(notesMatrix.elemAsDouble(2 * numNotes + i)), 0, 127);
         }
         keel::i32 vel = 64;
         if (d.cols() >= 4) {
-            vel = std::clamp(keel::as<keel::i32>(notesMatrix.elemAsDouble(3 * numNotes + i)), 0, 127);
+            vel = keel::clamp(keel::as<keel::i32>(notesMatrix.elemAsDouble(3 * numNotes + i)), 0, 127);
         }
-        const keel::f64 startSec = (d.cols() >= 5) ? std::max(0.0, notesMatrix.elemAsDouble(4 * numNotes + i)) : 0.0;
+        const keel::f64 startSec = (d.cols() >= 5) ? keel::max(0.0, notesMatrix.elemAsDouble(4 * numNotes + i)) : 0.0;
         const keel::f64 endSec = (d.cols() >= 6)
-            ? std::max(startSec, notesMatrix.elemAsDouble(5 * numNotes + i))
+            ? keel::max(startSec, notesMatrix.elemAsDouble(5 * numNotes + i))
             : (startSec + 0.5);
 
         keel::audiofile::MidiNote kn;
