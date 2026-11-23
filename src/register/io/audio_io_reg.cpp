@@ -17,7 +17,6 @@
 #include <numkit/value/value.hpp>
 
 #include <algorithm>
-#include <cstdint>
 
 namespace numkit::audio::detail {
 

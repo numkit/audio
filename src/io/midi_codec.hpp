@@ -10,7 +10,6 @@
 #include <keel/memory.h>
 #include <keel/ref.h>
 #include <keel/string.h>
-#include <cstdint>
 #include <numkit/value/value.hpp>
 
 namespace numkit::audio {

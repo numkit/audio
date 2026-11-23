@@ -11,7 +11,6 @@
 #include <keel/ref.h>
 #include "wav_codec.hpp" // For AudioData and AudioInfo
 
-#include <cstdint>
 #include <numkit/value/value.hpp>
 
 namespace numkit::audio {

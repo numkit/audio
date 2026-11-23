@@ -25,7 +25,6 @@
 #include <numkit/value/value.hpp>
 #include <numkit/signal/transforms/fft.hpp>
 
-#include <cstddef>
 
 namespace numkit::audio::detail {
 

@@ -37,7 +37,6 @@
 #include "fft_one_sided.hpp"
 
 #include <algorithm>
-#include <cstdint>
 
 
 namespace numkit::audio {
