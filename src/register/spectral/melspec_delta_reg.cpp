@@ -15,7 +15,6 @@
 #include <numkit/value/argcheck.hpp>
 #include <numkit/value/error.hpp>
 
-#include <utility>
 
 namespace numkit::audio {
 namespace detail {
@@ -51,7 +50,7 @@ void audioDelta_reg(keel::ArrayRef<Value> args, keel::usize nargout,
     Value *fcOut = (nargout >= 2) ? &fc : nullptr;
     outs[0] = audioDeltaFull(args[0], wl, ic, fcOut,
                              ctx.engine->allocator());
-    if (fcOut && outs.size() >= 2) outs[1] = std::move(fc);
+    if (fcOut && outs.size() >= 2) outs[1] = keel::move(fc);
 }
 
 } // namespace detail

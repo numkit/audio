@@ -9,7 +9,7 @@
 #include <keel/core.h>
 #include <keel/memory.h>
 #include <numkit/value/value.hpp>
-#include <tuple>
+#include <keel/tuple.h>
 
 namespace numkit::audio {
 
@@ -40,7 +40,7 @@ namespace numkit::audio {
 ///                     * `T` — `NumFrames × 1` frame-center times (seconds).
 ///
 /// @see mfcc, hz2mel, audioDelta
-std::tuple<Value, Value, Value>
+keel::Tuple<Value, Value, Value>
 melSpectrogram(const Value &                x,
                keel::f64                       fs,
                keel::i32                          numBands = 32,

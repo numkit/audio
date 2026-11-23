@@ -3,6 +3,7 @@
 // Audio Cycle C — melSpectrogram + audioDelta, delegated to keel::audio.
 
 #include <keel/core.h>
+#include <keel/tuple.h>
 #include <keel/math.h>
 #include <keel/memory.h>
 #include <keel/arena.h>
@@ -53,7 +54,7 @@ void audioDelta_argcheck(const Value &x, keel::i32 windowLength)
 
 } // anon
 
-std::tuple<Value, Value, Value>
+keel::Tuple<Value, Value, Value>
 melSpectrogram(const Value &x, keel::f64 fs, keel::i32 numBands,
                keel::Allocator *mr)
 {

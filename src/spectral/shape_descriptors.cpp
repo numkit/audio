@@ -357,8 +357,8 @@ InputData prepareInput(keel::Allocator *mr,
                             keel::format("numkit:{}:expectedFinite", fn));
         const keel::f64 fs = f.elemAsDouble(0);
         Stft s = computeStft(mr, x, fs, magnitude, fn, opts);
-        d.X = std::move(s.X);
-        d.F = std::move(s.F);
+        d.X = keel::move(s.X);
+        d.F = keel::move(s.F);
         d.isTime = true;
         d.numChan = s.numChan;
         d.numFrames = s.numFrames;
@@ -722,7 +722,7 @@ Value spectralFluxFull(const Value &x, const Value &f, keel::f64 p,
                 else fd[c * M + i] = v;
             }
         }
-        *finalCondition = std::move(fcx);
+        *finalCondition = keel::move(fcx);
     }
     return out;
 }

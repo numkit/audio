@@ -19,7 +19,6 @@
 #include <numkit/sys/plugin.hpp>   // CallContext, ctx.engine->resource()
 #include <numkit/value/argcheck.hpp>
 #include <numkit/value/error.hpp>
-#include <utility>
 
 namespace numkit::audio {
 namespace detail {
@@ -197,7 +196,7 @@ void spectralFlux_reg(keel::ArrayRef<Value> args, keel::usize nargout,
     Value fc;
     Value *fcOut = (nargout >= 2) ? &fc : nullptr;
     outs[0] = spectralFluxFull(x, f, p, ic, fcOut, magnitude, stft, mr);
-    if (fcOut && outs.size() >= 2) outs[1] = std::move(fc);
+    if (fcOut && outs.size() >= 2) outs[1] = keel::move(fc);
 }
 
 } // namespace detail

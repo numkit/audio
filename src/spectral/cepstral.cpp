@@ -2,6 +2,7 @@
 // Cepstral coefficients (cepstralCoefficients / mfcc / gtcc), delegated to keel::audio.
 
 #include <keel/arena.h>
+#include <keel/tuple.h>
 #include <keel/math.h>
 #include <keel/array.h>
 #include <keel/audio.h>
@@ -136,7 +137,7 @@ Value cepstralCoefficients(const Value &S, keel::i32 numCoeffs, CepstralRect rec
     return out;
 }
 
-std::tuple<Value, Value, Value>
+keel::Tuple<Value, Value, Value>
 mfcc(const Value &x, keel::f64 fs, keel::i32 numCoeffs, keel::Allocator *mr)
 {
     mfcc_argcheck(x, fs, numCoeffs);
@@ -174,7 +175,7 @@ mfcc(const Value &x, keel::f64 fs, keel::i32 numCoeffs, keel::Allocator *mr)
     return {out, delta, deltaDelta};
 }
 
-std::tuple<Value, Value, Value>
+keel::Tuple<Value, Value, Value>
 gtcc(const Value &x, keel::f64 fs, keel::i32 numCoeffs, keel::Allocator *mr)
 {
     gtcc_argcheck(x, fs, numCoeffs);

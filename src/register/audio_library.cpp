@@ -5,7 +5,6 @@
 #include <keel/ref.h>
 #include <numkit/audio/library.hpp>
 #include <numkit/sys/plugin.hpp>
-#include <utility>
 
 namespace numkit::audio::detail {
 // scale/freq_scales.cpp
@@ -59,7 +58,7 @@ void AudioLibrary::install(PluginContext &engine)
 {
     auto reg = [&](const char *sub, const char *name, ExternalFunc fn) {
         keel::String ns = keel::format("audio.{}", sub);
-        engine.registerFunction(ns.as_ref(), name, std::move(fn));
+        engine.registerFunction(ns.as_ref(), name, keel::move(fn));
     };
 
     reg("scale", "hz2mel",     &audio::detail::hz2mel_reg);

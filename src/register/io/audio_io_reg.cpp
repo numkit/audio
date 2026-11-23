@@ -72,7 +72,7 @@ void audioread_reg(keel::ArrayRef<Value> args, keel::usize nargout, keel::MutArr
                                        bytes.size(), startSample, endSample, nativeType,
                                        ctx.engine->allocator());
 
-    outs[0] = std::move(data.y);
+    outs[0] = keel::move(data.y);
     if (nargout >= 2 && outs.size() >= 2) {
         outs[1] = Value::scalar(data.sampleRate, ctx.engine->allocator());
     }
@@ -166,7 +166,7 @@ void audioinfo_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::Mu
     s.field("Artist")             = Value::fromString(info.artist.as_ref(), mr);
     s.field("Comment")            = Value::fromString(info.comment.as_ref(), mr);
 
-    outs[0] = std::move(s);
+    outs[0] = keel::move(s);
 }
 
 void midiread_reg(keel::ArrayRef<Value> args, keel::usize nargout, keel::MutArrayRef<Value> outs,
@@ -194,7 +194,7 @@ void midiread_reg(keel::ArrayRef<Value> args, keel::usize nargout, keel::MutArra
         s.field("Duration")             = Value::scalar(mi.duration, mr);
         s.field("TotalNotes")           = Value::scalar(keel::as<keel::f64>(mi.totalNotes), mr);
         s.field("TrackName")            = Value::fromString(mi.trackName.as_ref(), mr);
-        outs[1] = std::move(s);
+        outs[1] = keel::move(s);
     }
 }
 
@@ -243,7 +243,7 @@ void midiinfo_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::Mut
     s.field("TotalNotes")           = Value::scalar(keel::as<keel::f64>(mi.totalNotes), mr);
     s.field("TrackName")            = Value::fromString(mi.trackName.as_ref(), mr);
 
-    outs[0] = std::move(s);
+    outs[0] = keel::move(s);
 }
 
 } // namespace numkit::audio::detail

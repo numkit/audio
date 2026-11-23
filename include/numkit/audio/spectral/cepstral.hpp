@@ -9,7 +9,7 @@
 #include <keel/core.h>
 #include <keel/memory.h>
 #include <numkit/value/value.hpp>
-#include <tuple>
+#include <keel/tuple.h>
 
 namespace numkit::audio {
 
@@ -56,7 +56,7 @@ Value cepstralCoefficients(const Value &                S,
 ///                   estimates of the coefficients.
 ///
 /// @see cepstralCoefficients, audioDelta, gtcc
-std::tuple<Value, Value, Value>
+keel::Tuple<Value, Value, Value>
 mfcc(const Value &                x,
      keel::f64                       fs,
      keel::i32                          numCoeffs = 13,
@@ -77,7 +77,7 @@ mfcc(const Value &                x,
 /// @return           Tuple `(coeffs, delta, deltaDelta)`.
 ///
 /// @see mfcc, hz2erb
-std::tuple<Value, Value, Value>
+keel::Tuple<Value, Value, Value>
 gtcc(const Value &                x,
      keel::f64                       fs,
      keel::i32                          numCoeffs = 13,
