@@ -40,10 +40,11 @@ void cepstralCoefficients_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*
         keel::String name = args[i].toString();
         name.to_ascii_lower_in_place();
         if (name == "numcoeffs" || name == "num") {
-            nc = argcheck::expectedPositiveInteger(
-                argcheck::expectedReal(args[i + 1], i + 2, "NumCoeffs",
+            const keel::i32 argPos = keel::as<keel::i32>(i + 2);
+            nc = keel::as<keel::i32>(argcheck::expectedPositiveInteger(
+                argcheck::expectedReal(args[i + 1], argPos, "NumCoeffs",
                                        "cepstralCoefficients"),
-                i + 2, "NumCoeffs", "cepstralCoefficients");
+                argPos, "NumCoeffs", "cepstralCoefficients"));
         } else if (name == "rectification" || name == "rect") {
             keel::String val = args[i + 1].toString();
             val.to_ascii_lower_in_place();
