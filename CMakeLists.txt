@@ -187,7 +187,7 @@ if(NOT TARGET keel::audiofile)
     FetchContent_Declare(
         keel_audiofile
         GIT_REPOSITORY https://github.com/keelcpp/audiofile.git
-        GIT_TAG        fc9a8a7c3034ff82f74dd62639736eb61cbdf6dd
+        GIT_TAG        799be50228309013b719dcd6571aa7df96df61f4
     )
     FetchContent_MakeAvailable(keel_audiofile)
 endif()
@@ -202,7 +202,7 @@ if(NOT TARGET keel::audio)
     FetchContent_Declare(
         keel_audio
         GIT_REPOSITORY https://github.com/keelcpp/audio.git
-        GIT_TAG        4d1bcb5d179fb0db0712322e1da50f4ea61d659d
+        GIT_TAG        4e618e4864e82ff59bcc9b3e72a786e68695d12c
     )
     FetchContent_MakeAvailable(keel_audio)
 endif()
