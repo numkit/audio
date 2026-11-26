@@ -46,6 +46,34 @@ private:
     unsigned bitsCount_ = 0;
 };
 
+// RFC 9639 FLAC CRC-8 (polynomial 0x07, init 0).
+keel::u8 flacCrc8(const keel::u8 *buf, keel::usize len)
+{
+    keel::u8 crc = 0;
+    for (keel::usize i = 0; i < len; ++i) {
+        crc ^= buf[i];
+        for (int b = 0; b < 8; ++b) {
+            crc = (crc & 0x80u) ? static_cast<keel::u8>((crc << 1u) ^ 0x07u)
+                                : static_cast<keel::u8>(crc << 1u);
+        }
+    }
+    return crc;
+}
+
+// RFC 9639 FLAC CRC-16 (polynomial 0x8005, init 0).
+keel::u16 flacCrc16(const keel::u8 *buf, keel::usize len)
+{
+    keel::u16 crc = 0;
+    for (keel::usize i = 0; i < len; ++i) {
+        crc ^= static_cast<keel::u16>(static_cast<keel::u16>(buf[i]) << 8u);
+        for (int b = 0; b < 8; ++b) {
+            crc = (crc & 0x8000u) ? static_cast<keel::u16>((crc << 1u) ^ 0x8005u)
+                                  : static_cast<keel::u16>(crc << 1u);
+        }
+    }
+    return crc;
+}
+
 // Construct a minimal valid 16-bit stereo FLAC stream with Verbatim subframe
 std::vector<keel::u8> makeSyntheticFlac(keel::u32 blockSize, keel::u32 sampleRate,
                                        const std::vector<keel::i16> &left,
@@ -71,6 +99,7 @@ std::vector<keel::u8> makeSyntheticFlac(keel::u32 blockSize, keel::u32 sampleRat
     for (int i = 0; i < 16; ++i) bw.writeBits(0, 8); // MD5
 
     // Frame Header
+    const keel::usize frameStart = bw.data().size();
     bw.writeBits(0x3FFE, 14); // Sync
     bw.writeBits(0, 1);       // reserved
     bw.writeBits(0, 1);       // fixed block size
@@ -82,7 +111,9 @@ std::vector<keel::u8> makeSyntheticFlac(keel::u32 blockSize, keel::u32 sampleRat
     bw.writeBits(0, 1);       // reserved
     bw.writeUtf8(0);          // frame number 0
     bw.writeBits(blockSize - 1, 16); // custom block size
-    bw.writeBits(0, 8);       // CRC-8
+    const keel::u8 hdrCrc = flacCrc8(bw.data().data() + frameStart,
+                                     bw.data().size() - frameStart);
+    bw.writeBits(hdrCrc, 8);  // CRC-8
 
     // Subframe 0 (Left): Verbatim
     bw.writeBits(0, 1);       // zero
@@ -101,7 +132,9 @@ std::vector<keel::u8> makeSyntheticFlac(keel::u32 blockSize, keel::u32 sampleRat
     }
 
     bw.alignToByte();
-    bw.writeBits(0, 16); // CRC-16 footer
+    const keel::u16 frameCrc = flacCrc16(bw.data().data() + frameStart,
+                                         bw.data().size() - frameStart);
+    bw.writeBits(frameCrc, 16); // CRC-16 footer
 
     return bw.data();
 }
