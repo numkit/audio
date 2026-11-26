@@ -96,3 +96,15 @@ TEST_F(AudioE2EIoTest, MidiWorkflow) {
     EXPECT_DOUBLE_EQ(engine_->eval("size(notes_read, 1)").elemAsDouble(0), 3.0);
     EXPECT_DOUBLE_EQ(engine_->eval("size(notes_read, 2)").elemAsDouble(0), 6.0);
 }
+
+TEST_F(AudioE2EIoTest, RejectsEmptyAndInvalidParameters) {
+    EXPECT_THROW(engine_->eval("audiowrite('bad_oob.wav', zeros(4, 1), []);"), numkit::Error);
+    EXPECT_THROW(engine_->eval("audiowrite('bad_oob.wav', zeros(4, 1), 44100, 'BitsPerSample', []);"), numkit::Error);
+    EXPECT_THROW(engine_->eval("audiowrite('bad_oob.wav', zeros(4, 1), 44100, 'BitsPerSample', -8);"), numkit::Error);
+    EXPECT_THROW(engine_->eval("audiowrite('bad_oob.wav', zeros(4, 1), 44100, 'BitsPerSample', Inf);"), numkit::Error);
+    EXPECT_THROW(engine_->eval("midiwrite('bad_oob.mid', [1 1 60 90 0 0.5], -1);"), numkit::Error);
+    EXPECT_THROW(engine_->eval("midiwrite('bad_oob.mid', [1 1 60 90 0 0.5], 480, NaN);"), numkit::Error);
+    EXPECT_THROW(engine_->eval("spectralFlux([4 1; 3 2; 2 3; 1 4], [100; 200; 300; 400], 'NormType', []);"), numkit::Error);
+    EXPECT_THROW(engine_->eval("pitch(zeros(1600, 1), 8000, 'Range', 'ab');"), numkit::Error);
+    EXPECT_THROW(engine_->eval("pitch(zeros(1600, 1), 8000, 'Range', [NaN 400]);"), numkit::Error);
+}

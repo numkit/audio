@@ -52,10 +52,33 @@ void audioread_reg(keel::ArrayRef<Value> args, keel::usize nargout, keel::MutArr
             if (opt == "native") nativeType = true;
             else if (opt == "double") nativeType = false;
         } else if (args[i].isNumeric()) {
-            const auto &d = args[i].dims();
-            keel::usize n = d.numel();
-            if (n >= 1) startSample = keel::as<keel::i64>(args[i].elemAsDouble(0));
-            if (n >= 2) endSample = keel::as<keel::i64>(args[i].elemAsDouble(1));
+            if (args[i].isComplex()) {
+                throw Error("audioread: samples range must be real numeric",
+                            0, 0, "audioread", "", "numkit:audioread:samples");
+            }
+            const keel::usize n = args[i].numel();
+            if (n >= 1) {
+                const keel::f64 s0 = args[i].elemAsDouble(0);
+                if (!keel::is_finite(s0) || !keel::is_integer(s0)
+                    || s0 < 1.0 || s0 > 9007199254740992.0) {
+                    throw Error("audioread: start sample must be a finite positive integer",
+                                0, 0, "audioread", "", "numkit:audioread:samples");
+                }
+                startSample = keel::as<keel::i64>(s0);
+            }
+            if (n >= 2) {
+                const keel::f64 s1 = args[i].elemAsDouble(1);
+                if (keel::is_inf(s1) && s1 > 0.0) {
+                    endSample = -1;
+                } else {
+                    if (!keel::is_finite(s1) || !keel::is_integer(s1)
+                        || s1 < 1.0 || s1 > 9007199254740992.0) {
+                        throw Error("audioread: end sample must be a positive integer or Inf",
+                                    0, 0, "audioread", "", "numkit:audioread:samples");
+                    }
+                    endSample = keel::as<keel::i64>(s1);
+                }
+            }
         }
     }
 
@@ -92,7 +115,15 @@ void audiowrite_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::M
 
     const keel::String path = args[0].toString();
     const Value &y = args[1];
-    keel::f64 sampleRate = args[2].isNumeric() ? args[2].elemAsDouble(0) : 44100.0;
+    if (!args[2].isNumeric() || args[2].isComplex() || args[2].numel() != 1) {
+        throw Error("audiowrite: sample rate Fs must be a positive real numeric scalar",
+                    0, 0, "audiowrite", "", "numkit:audiowrite:sampleRate");
+    }
+    const keel::f64 sampleRate = args[2].elemAsDouble(0);
+    if (!keel::is_finite(sampleRate) || !(sampleRate > 0.0)) {
+        throw Error("audiowrite: sample rate Fs must be finite and positive",
+                    0, 0, "audiowrite", "", "numkit:audiowrite:sampleRate");
+    }
 
     keel::String ext = lowerExt(path.as_ref());
     if (ext.empty()) ext.assign("wav");
@@ -108,9 +139,17 @@ void audiowrite_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::M
         keel::String key = args[i].toString();
         key.to_ascii_lower_in_place();
         if (key == "bitspersample") {
-            if (args[i+1].isNumeric()) {
-                bitsPerSample = keel::as<keel::u16>(args[i+1].elemAsDouble(0));
+            const Value &bpsVal = args[i + 1];
+            if (!bpsVal.isNumeric() || bpsVal.isComplex() || bpsVal.numel() != 1) {
+                throw Error("audiowrite: BitsPerSample must be a positive real numeric scalar",
+                            0, 0, "audiowrite", "", "numkit:audiowrite:bitsPerSample");
             }
+            const keel::f64 bps = bpsVal.elemAsDouble(0);
+            if (!keel::is_finite(bps) || !keel::is_integer(bps) || bps < 1.0 || bps > 65535.0) {
+                throw Error("audiowrite: BitsPerSample must be an integer in [1, 65535]",
+                            0, 0, "audiowrite", "", "numkit:audiowrite:bitsPerSample");
+            }
+            bitsPerSample = keel::as<keel::u16>(bps);
         } else if (key == "title") {
             title = args[i+1].toString();
         } else if (key == "artist") {
@@ -206,8 +245,30 @@ void midiwrite_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/, keel::Mu
 
     keel::u16 tpqn = 480;
     keel::f64 tempo = 120.0;
-    if (args.size() >= 3 && args[2].isNumeric()) tpqn = keel::as<keel::u16>(args[2].elemAsDouble(0));
-    if (args.size() >= 4 && args[3].isNumeric()) tempo = args[3].elemAsDouble(0);
+    if (args.size() >= 3 && !args[2].isEmpty()) {
+        if (!args[2].isNumeric() || args[2].isComplex() || args[2].numel() != 1) {
+            throw Error("midiwrite: ticks per quarter note must be a positive real numeric scalar",
+                        0, 0, "midiwrite", "", "numkit:midiwrite:tpqn");
+        }
+        const keel::f64 tpqnVal = args[2].elemAsDouble(0);
+        if (!keel::is_finite(tpqnVal) || !keel::is_integer(tpqnVal) || tpqnVal < 1.0 || tpqnVal > 65535.0) {
+            throw Error("midiwrite: ticks per quarter note must be an integer in [1, 65535]",
+                        0, 0, "midiwrite", "", "numkit:midiwrite:tpqn");
+        }
+        tpqn = keel::as<keel::u16>(tpqnVal);
+    }
+    if (args.size() >= 4 && !args[3].isEmpty()) {
+        if (!args[3].isNumeric() || args[3].isComplex() || args[3].numel() != 1) {
+            throw Error("midiwrite: tempo must be a positive real numeric scalar",
+                        0, 0, "midiwrite", "", "numkit:midiwrite:tempo");
+        }
+        const keel::f64 tempoVal = args[3].elemAsDouble(0);
+        if (!keel::is_finite(tempoVal) || !(tempoVal > 0.0)) {
+            throw Error("midiwrite: tempo must be finite and positive",
+                        0, 0, "midiwrite", "", "numkit:midiwrite:tempo");
+        }
+        tempo = tempoVal;
+    }
 
     auto bytes = writeMidiToBytes(notes, tpqn, tempo);
     auto rp = ctx.engine->resolvePath(path.as_ref());

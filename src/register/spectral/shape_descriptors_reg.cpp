@@ -131,6 +131,10 @@ void spectralFlux_reg(keel::ArrayRef<Value> args, keel::usize nargout,
                     throw Error("spectralFlux: NormType must be real.",
                                 0, 0, "spectralFlux", "",
                                 "numkit:spectralFlux:mustBeReal");
+                if ((!v.isNumeric() && !v.isLogical()) || v.numel() != 1)
+                    throw Error("spectralFlux: NormType must be a real numeric scalar.",
+                                0, 0, "spectralFlux", "",
+                                "numkit:spectralFlux:normType");
                 p = v.elemAsDouble(0);
                 i += 2;
             } else if (name == "spectrumtype" || name == "spect") {

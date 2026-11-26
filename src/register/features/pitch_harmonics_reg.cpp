@@ -50,11 +50,14 @@ void pitch_reg(keel::ArrayRef<Value> args, keel::usize /*nargout*/,
             method = keel::move(m);
         } else if (name == "range") {
             const Value &r = args[i + 1];
-            if (r.numel() != 2)
-                throw Error("pitch: Range must be a 2-element vector [lo hi]",
+            if (!r.isNumeric() || r.isComplex() || r.numel() != 2)
+                throw Error("pitch: Range must be a 2-element real numeric vector [lo hi]",
                             0, 0, "pitch", "", "numkit:pitch:BadRange");
             minF = r.elemAsDouble(0);
             maxF = r.elemAsDouble(1);
+            if (!keel::is_finite(minF) || !keel::is_finite(maxF))
+                throw Error("pitch: Range elements must be finite",
+                            0, 0, "pitch", "", "numkit:pitch:BadRange");
         }
     }
     const keel::f64 fs = args[1].toScalar();
